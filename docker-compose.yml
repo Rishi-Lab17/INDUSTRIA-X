@@ -1,0 +1,28 @@
+# INDUSTRIA-X local deployment (Stage 10 target).
+# Docker is NOT installed on the current machine, so the authoritative
+# prototype runs WITHOUT docker: backend via `python -m uvicorn`,
+# frontend via `npm run dev`. This file is kept for later machines that
+# have Docker, and for the final local-first `docker compose up` story.
+name: industria-x
+
+services:
+  backend:
+    build: ./backend
+    ports:
+      - "${BACKEND_PORT:-8000}:8000"
+    env_file:
+      - .env
+    volumes:
+      - ./storage:/app/storage
+      - ./database:/app/database
+      - ./data:/app/data:ro
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000
+
+  frontend:
+    build: ./frontend
+    ports:
+      - "${FRONTEND_PORT:-5173}:5173"
+    environment:
+      - VITE_API_URL=http://127.0.0.1:8000
+    depends_on:
+      - backend
