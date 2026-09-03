@@ -31,6 +31,9 @@ class Settings(BaseSettings):
 
     # --- Email OTP delivery (Resend API). Credentials from env; never hardcoded.
     # The Resend call happens ONLY in the FastAPI backend, never the frontend.
+    # RESEND_ENABLED=true AND a key → Resend; otherwise development outbox
+    # (local) or loud refusal (other envs). Never crashes for a missing key.
+    RESEND_ENABLED: bool = True
     RESEND_API_KEY: str = ""
     RESEND_FROM_EMAIL: str = ""
     RESEND_FROM_NAME: str = "INDUSTRIA-X"

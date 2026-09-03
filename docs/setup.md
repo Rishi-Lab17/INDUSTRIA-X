@@ -18,10 +18,11 @@ Vite proxies `/api` → backend, so no frontend env file is needed in dev.
 
 ## Email OTP via Resend (production) / local outbox (dev)
 
-Set `RESEND_API_KEY` + `RESEND_FROM_EMAIL` in `.env` (key from
-https://resend.com/api-keys, verified sender domain). The FastAPI backend
-POSTs to `https://api.resend.com/emails` — the key never touches the
-frontend. With `APP_ENV=local` and no key, verification mail is written to
-`storage/temporary/dev-outbox/<email>.eml` (gitignored) and the API returns
-`dev_mode: true` with an explicit message — the code never appears in any
-response, log, or UI. Any other `APP_ENV` without a key → HTTP 502 (loud).
+Provider selection is automatic: `RESEND_ENABLED=true` + `RESEND_API_KEY` →
+`ResendEmailProvider` (key from https://resend.com/api-keys, verified sender
+in `RESEND_FROM_EMAIL`, called only by the FastAPI backend — never the
+frontend). No key + `APP_ENV=local` → `DevelopmentEmailProvider`, which writes
+`storage/temporary/dev-outbox/<email>.eml` (gitignored, with recipient,
+subject, OTP, timestamps, purpose) and the API returns `dev_mode: true`.
+No key in any other env → HTTP 502 (loud, never faked). Place your own
+credential later directly in the local `.env` (never commit it).

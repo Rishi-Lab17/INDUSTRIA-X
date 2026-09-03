@@ -15,7 +15,7 @@ function maskEmail(email: string): string {
 export default function Verify() {
   const loc = useLocation() as { state?: { email?: string; devMode?: boolean } };
   const [email, setEmail] = useState(loc.state?.email ?? "");
-  const [devMode, setDevMode] = useState(loc.state?.devMode ?? false);
+  const [devMode, setDevMode] = useState<boolean | null>(loc.state?.devMode ?? null);
   const [code, setCode] = useState("");
   const [err, setErr] = useState("");
   const [ok, setOk] = useState(loc.state?.email ? "Verification code sent to your email address." : "");
@@ -51,7 +51,7 @@ export default function Verify() {
     try {
       const r = await api.resendOtp({ email: email.trim() });
       setOk(r.message);
-      if (r.dev_mode) setDevMode(true);
+      if (typeof r.dev_mode === "boolean") setDevMode(r.dev_mode);
       setCooldown(RESEND_COOLDOWN_S);
     } catch (e) {
       const msg = e instanceof Error ? e.message : "Resend failed";
@@ -65,6 +65,16 @@ export default function Verify() {
     <div className="auth-wrap">
       <div className="panel auth-card">
         <h1>Verify Your Email</h1>
+        {devMode === true && (
+          <div style={{ marginBottom: 12 }}>
+            <span className="badge"><span className="dot dot-warn" />DEVELOPMENT MODE</span>
+          </div>
+        )}
+        {devMode === false && (
+          <div style={{ marginBottom: 12 }}>
+            <span className="badge"><span className="dot dot-online" />EMAIL DELIVERY</span>
+          </div>
+        )}
         <p>
           We&apos;ve sent a 6-digit verification code to:
           <br />
@@ -72,9 +82,8 @@ export default function Verify() {
         </p>
         {devMode && (
           <div className="alert alert-warn">
-            Development mode — no email was sent. The OTP was generated locally;
-            read it from the server&apos;s local outbox:{" "}
-            <b>storage/temporary/dev-outbox</b>.
+            Development mode: no external email was sent. Your verification code
+            is available in the local development outbox.
           </div>
         )}
         {err && <div className="alert alert-error">{err}</div>}
