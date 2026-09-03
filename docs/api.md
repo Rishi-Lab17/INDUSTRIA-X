@@ -39,3 +39,15 @@ System (`backend/app/routers/system.py`):
 
 Conventions: JWT Bearer, tenant from session, 401 unauthenticated,
 403 wrong role / unverified, 409 duplicate, 422 validation.
+
+Company + equipment — Stage 2 (`routers/company.py`, `routers/equipment.py`):
+
+- `GET /api/company` (all roles) → {company, members, stats}.
+- `PATCH /api/company` (COMPANY_ADMIN) → rename / merge settings.
+- `GET /api/equipment[?status=&criticality=&q=]` (all roles) → own-company assets.
+- `POST /api/equipment` (ADMIN, ENGINEER) → 201 passport; 409 duplicate code.
+- `GET /api/equipment/{id}` (all roles) → passport; foreign id → 404.
+- `PATCH /api/equipment/{id}` (ADMIN, ENGINEER) → partial update + audit.
+- `DELETE /api/equipment/{id}` (ADMIN) → soft deactivate (history kept).
+- `GET /api/equipment/{id}/qr` (all roles) → PNG QR of the passport payload.
+- `GET /api/equipment/{id}/history` (ADMIN, ENGINEER) → per-asset audit trail.

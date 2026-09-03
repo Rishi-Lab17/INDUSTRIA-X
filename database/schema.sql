@@ -5,6 +5,7 @@
 CREATE TABLE IF NOT EXISTS companies (
   id          INTEGER PRIMARY KEY AUTOINCREMENT,
   name        TEXT NOT NULL UNIQUE,
+  settings    TEXT NOT NULL DEFAULT '{}',
   created_at  TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
@@ -52,8 +53,39 @@ CREATE TABLE IF NOT EXISTS audit_events (
   user_id     INTEGER REFERENCES users(id),
   action      TEXT NOT NULL,
   detail      TEXT NOT NULL DEFAULT '{}',
+  entity_type TEXT,
+  entity_id   INTEGER,
   ip          TEXT,
   created_at  TEXT NOT NULL DEFAULT (datetime('now'))
 );
 CREATE INDEX IF NOT EXISTS idx_audit_company ON audit_events(company_id);
 CREATE INDEX IF NOT EXISTS idx_audit_action ON audit_events(action);
+CREATE INDEX IF NOT EXISTS idx_audit_entity ON audit_events(entity_type, entity_id);
+
+-- Stage 2: equipment assets. Tenant-scoped via company_id; human-readable
+-- code unique per company (e.g. P-204). Deletion is soft (is_active=0) so
+-- history/audit survive.
+CREATE TABLE IF NOT EXISTS equipment (
+  id              INTEGER PRIMARY KEY AUTOINCREMENT,
+  company_id      INTEGER NOT NULL REFERENCES companies(id),
+  code            TEXT NOT NULL,
+  name            TEXT NOT NULL,
+  type            TEXT NOT NULL,
+  manufacturer    TEXT NOT NULL DEFAULT '',
+  model           TEXT NOT NULL DEFAULT '',
+  serial_number   TEXT NOT NULL DEFAULT '',
+  location        TEXT NOT NULL DEFAULT '',
+  criticality     TEXT NOT NULL CHECK (criticality IN ('LOW','MEDIUM','HIGH','CRITICAL')),
+  status          TEXT NOT NULL DEFAULT 'OPERATIONAL'
+                  CHECK (status IN ('OPERATIONAL','DEGRADED','UNDER_MAINTENANCE','DECOMMISSIONED')),
+  installed_at    TEXT,
+  commissioned_at TEXT,
+  metadata        TEXT NOT NULL DEFAULT '{}',
+  created_by      INTEGER REFERENCES users(id),
+  is_active       INTEGER NOT NULL DEFAULT 1,
+  created_at      TEXT NOT NULL DEFAULT (datetime('now')),
+  updated_at      TEXT NOT NULL DEFAULT (datetime('now')),
+  UNIQUE(company_id, code)
+);
+CREATE INDEX IF NOT EXISTS idx_equipment_company ON equipment(company_id);
+CREATE INDEX IF NOT EXISTS idx_equipment_code ON equipment(company_id, code);
