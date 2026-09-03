@@ -1,6 +1,6 @@
-# Testing (Stage 1 + email-OTP hardening)
+# Testing (Stage 1 + email-OTP hardening + Stage 2)
 
-Run from the root: `python -m pytest tests/ -v` (12 tests, all passing).
+Run from the root: `python -m pytest tests/ -v` (25 tests, all passing).
 
 `tests/test_stage1_auth.py` (5 tests): full register→verify→login→me→logout→
 revoked flow (OTP read from the fake provider's server-side record, never the
@@ -25,6 +25,13 @@ Leak audits (manual, must stay clean): grep frontend `src/` for
 
 Failure matrix now also covers: expired OTP, reused OTP, resend cooldown,
 verify brute-force, SMTP outage, unknown-email resend (generic success).
+
+`tests/test_stage2_equipment.py` (7 tests): company profile read/patch RBAC,
+equipment CRUD + soft delete, full role matrix (tech read-only incl. QR,
+engineer no-delete, admin full), cross-company 404s on every endpoint,
+per-company code reuse, validation/422s, QR PNG magic + payload + auth,
+unauthenticated blocking, per-asset history ordering with audit persistence
+after deactivation.
 
 Failure matrix covers: invalid login, unverified login, wrong/expired/reused
 OTP, resend cooldown + hourly cap, verify brute-force, Resend outage/reject,

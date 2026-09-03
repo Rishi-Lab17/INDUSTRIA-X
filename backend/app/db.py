@@ -31,6 +31,16 @@ def init_db() -> None:
             con.execute("ALTER TABLE users ADD COLUMN phone TEXT")
         if "phone_verified" not in cols:
             con.execute("ALTER TABLE users ADD COLUMN phone_verified INTEGER NOT NULL DEFAULT 0")
+        ccols = {r[1] for r in con.execute("PRAGMA table_info(companies)").fetchall()}
+        if "settings" not in ccols:
+            con.execute("ALTER TABLE companies ADD COLUMN settings TEXT NOT NULL DEFAULT '{}'")
+        acols = {r[1] for r in con.execute("PRAGMA table_info(audit_events)").fetchall()}
+        if "entity_type" not in acols:
+            con.execute("ALTER TABLE audit_events ADD COLUMN entity_type TEXT")
+        if "entity_id" not in acols:
+            con.execute("ALTER TABLE audit_events ADD COLUMN entity_id INTEGER")
+        con.execute("CREATE INDEX IF NOT EXISTS idx_audit_entity"
+                    " ON audit_events(entity_type, entity_id)")
         con.commit()
     finally:
         con.close()
