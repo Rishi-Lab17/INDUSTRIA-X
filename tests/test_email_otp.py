@@ -29,7 +29,7 @@ def test_register_sends_real_email_and_hides_otp():
     r = _register(email, company)
     assert r.status_code == 201, r.text
     assert r.json() == {"message": "Verification code sent to your email address.",
-                        "email_masked": "o****@email.test"}
+                        "email_masked": "o****@email.test", "dev_mode": False}
     assert "dev_otp" not in r.text and "verification_code" not in r.text.lower()
 
     # Real SMTP transmission happened: envelope addressed to the exact email.
@@ -158,17 +158,62 @@ def test_verify_rate_limit_and_limiter_unit():
     reset_all()  # do not pollute other tests (same process, shared limiter)
 
 
-def test_register_fails_loudly_without_smtp():
+def test_register_fails_loudly_without_smtp_outside_local():
+    # Outside APP_ENV=local, unconfigured SMTP must refuse loudly (502),
+    # never fake delivery and never leak the code.
     s = get_settings()
-    old_host = s.SMTP_HOST
-    s.SMTP_HOST = ""
+    old_host, old_env = s.SMTP_HOST, s.APP_ENV
+    s.SMTP_HOST, s.APP_ENV = "", "production"
     try:
         email, company = _next("nosmtp")
         r = _register(email, company)
         assert r.status_code == 502
-        assert "dev_otp" not in r.text and "otp" not in r.text.lower().replace("resend", "")
+        assert "dev_otp" not in r.text and '"otp"' not in r.text
     finally:
-        s.SMTP_HOST = old_host
+        s.SMTP_HOST, s.APP_ENV = old_host, old_env
+
+
+def test_dev_outbox_flow_local_no_smtp():
+    # Documented local mechanism: code saved to a server-side outbox FILE.
+    # The API response and UI still never carry the code.
+    import tempfile
+    from pathlib import Path
+    s = get_settings()
+    old_host, old_dir = s.SMTP_HOST, s.DEV_OUTBOX_DIR
+    tmp = tempfile.mkdtemp(prefix="ix-outbox-")
+    s.SMTP_HOST, s.DEV_OUTBOX_DIR = "", tmp
+    try:
+        email, company = _next("devbox")
+        r = _register(email, company)
+        assert r.status_code == 201, r.text
+        body = r.json()
+        assert body["dev_mode"] is True
+        assert "Development mode" in body["message"]
+        assert "dev_otp" not in r.text and '"otp"' not in r.text
+
+        safe = re.sub(r"[^a-z0-9]", "_", email.lower())
+        eml = Path(tmp) / f"{safe}.eml"
+        assert eml.exists()
+        codes = re.findall(r"(?m)^(\d{6})\r?$", eml.read_text(encoding="utf-8"))
+        assert len(codes) == 1
+
+        vr = client.post("/api/auth/verify-otp",
+                         json={"email": email, "code": codes[0]})
+        assert vr.status_code == 200
+        assert vr.json()["message"] == "Email verified successfully. You can now log in."
+        lr = client.post("/api/auth/login",
+                         json={"email": email, "password": "Str0ngPass!"})
+        assert lr.status_code == 200
+    finally:
+        s.SMTP_HOST, s.DEV_OUTBOX_DIR = old_host, old_dir
+
+
+def test_password_length_rules():
+    email, company = _next("pwlen")
+    r = client.post("/api/auth/register", json={
+        "company_name": company, "name": "T User",
+        "email": email, "password": "x" * 73})
+    assert r.status_code == 422  # bcrypt 72-byte limit enforced loudly
 
 
 def test_phone_link_requires_firebase():

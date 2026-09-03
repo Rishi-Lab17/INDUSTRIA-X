@@ -13,8 +13,9 @@ function maskEmail(email: string): string {
 }
 
 export default function Verify() {
-  const loc = useLocation() as { state?: { email?: string } };
+  const loc = useLocation() as { state?: { email?: string; devMode?: boolean } };
   const [email, setEmail] = useState(loc.state?.email ?? "");
+  const [devMode, setDevMode] = useState(loc.state?.devMode ?? false);
   const [code, setCode] = useState("");
   const [err, setErr] = useState("");
   const [ok, setOk] = useState(loc.state?.email ? "Verification code sent to your email address." : "");
@@ -50,6 +51,7 @@ export default function Verify() {
     try {
       const r = await api.resendOtp({ email: email.trim() });
       setOk(r.message);
+      if (r.dev_mode) setDevMode(true);
       setCooldown(RESEND_COOLDOWN_S);
     } catch (e) {
       const msg = e instanceof Error ? e.message : "Resend failed";
@@ -68,6 +70,12 @@ export default function Verify() {
           <br />
           <b>{email ? maskEmail(email.trim()) : "your email address"}</b>
         </p>
+        {devMode && (
+          <div className="alert alert-warn">
+            Development mode — no email was sent. Read the code from the
+            server&apos;s local outbox: <b>storage/temporary/dev-outbox</b>.
+          </div>
+        )}
         {err && <div className="alert alert-error">{err}</div>}
         {ok && <div className="alert alert-ok">{ok}</div>}
         <form onSubmit={submit}>

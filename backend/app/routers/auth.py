@@ -59,6 +59,9 @@ class RegisterIn(BaseModel):
     def _pw(cls, v: str) -> str:
         if len(v) < 8:
             raise ValueError("Password must be at least 8 characters")
+        if len(v.encode("utf-8")) > 72:
+            # bcrypt limit: reject loudly instead of silently truncating.
+            raise ValueError("Password must not exceed 72 bytes")
         return v
 
     @field_validator("company_name", "name")
@@ -116,6 +119,8 @@ class CreateUserIn(BaseModel):
     def _pw(cls, v: str) -> str:
         if len(v) < 8:
             raise ValueError("Password must be at least 8 characters")
+        if len(v.encode("utf-8")) > 72:
+            raise ValueError("Password must not exceed 72 bytes")
         return v
 
     @field_validator("role")
@@ -162,7 +167,7 @@ def register(body: RegisterIn, request: Request):
     # Deliver OUT-OF-BAND only. The code never appears in any API response,
     # log line, or frontend view.
     try:
-        email_service.send_verification_code(body.email, body.name, code)
+        mode = email_service.send_verification_code(body.email, body.name, code)
     except email_service.EmailNotConfigured as e:
         log_event("register_email_failed", {"email": body.email, "reason": "not_configured"},
                   company_id=company_id, user_id=user_id, ip=_client_ip(request))
@@ -175,10 +180,15 @@ def register(body: RegisterIn, request: Request):
             detail="Could not send verification email. Please use Resend Code to retry.")
     finally:
         code = "******"  # drop the plaintext code from this scope immediately
-    log_event("register", {"email": body.email}, company_id=company_id,
+    log_event("register", {"email": body.email, "mode": mode}, company_id=company_id,
               user_id=user_id, ip=_client_ip(request))
+    if mode == "dev-outbox":
+        return {"message": "Email delivery is not configured. Development mode:"
+                           " verification email saved to the local outbox"
+                           " (storage/temporary/dev-outbox).",
+                "email_masked": mask_email(body.email), "dev_mode": True}
     return {"message": "Verification code sent to your email address.",
-            "email_masked": mask_email(body.email)}
+            "email_masked": mask_email(body.email), "dev_mode": False}
 
 
 def _latest_pending_otp(con, user_id: int):
@@ -276,7 +286,7 @@ def resend_otp(body: ResendOtpIn, request: Request):
     finally:
         con.close()
     try:
-        email_service.send_verification_code(email, name, code)
+        mode = email_service.send_verification_code(email, name, code)
     except email_service.EmailError:
         log_event("resend_email_failed", {"email": email},
                   company_id=company_id, user_id=user_id, ip=_client_ip(request))
@@ -285,10 +295,15 @@ def resend_otp(body: ResendOtpIn, request: Request):
             detail="Could not send verification email. Please try again.")
     finally:
         code = "******"
-    log_event("otp_resent", {"email": email}, company_id=company_id,
+    log_event("otp_resent", {"email": email, "mode": mode}, company_id=company_id,
               user_id=user_id, ip=_client_ip(request))
+    if mode == "dev-outbox":
+        return {"message": "Email delivery is not configured. Development mode:"
+                           " verification email saved to the local outbox"
+                           " (storage/temporary/dev-outbox).",
+                "email_masked": mask_email(email), "dev_mode": True}
     return {"message": "Verification code sent to your email address.",
-            "email_masked": mask_email(email)}
+            "email_masked": mask_email(email), "dev_mode": False}
 
 
 @router.post("/phone/link")
