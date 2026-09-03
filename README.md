@@ -8,6 +8,18 @@
 **Root (only root):** `C:\Users\Rishi K Yadav\Documents\INDUSTRIA-X`
 **Demo hero:** PUMP P-204, abnormal vibration.
 
+## Current status
+
+- Stage 1 — COMPLETE (auth, OTP, sessions, RBAC, health, sovereignty)
+- Stage 2 — COMPLETE (company workspace, equipment digital passport + QR)
+- Stage 3 — NEXT (knowledge base + secure document upload)
+
+## Team Git workflow
+
+`main` (verified releases) ← `develop` (integration) ← `feature/*` (all work).
+Never push unfinished work to `main`. Full rules: `CONTRIBUTING.md`.
+CI (`.github/workflows/ci.yml`) runs pytest + frontend build, credential-free.
+
 ## Features (10 stages)
 
 1. Foundation + auth (JWT, OTP, bcrypt, sessions, RBAC) + premium UI shell
