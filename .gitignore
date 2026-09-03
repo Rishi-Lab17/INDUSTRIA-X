@@ -26,6 +26,8 @@ venv/
 *.db-journal
 *.db-wal
 *.db-shm
+*.sqlite
+*.sqlite3
 
 # Storage — uploaded runtime artifacts stay local (demo seed data in data/demo IS tracked)
 storage/documents/*
