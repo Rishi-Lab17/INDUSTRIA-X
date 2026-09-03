@@ -34,6 +34,43 @@ export function getToken(): string | null {
   return localStorage.getItem("ix_token");
 }
 
+export interface KBDocument {
+  id: number;
+  company_id: number;
+  equipment_id: number | null;
+  equipment_code: string | null;
+  uploaded_by: number | null;
+  uploader_name: string | null;
+  original_filename: string;
+  file_type: string;
+  mime_type: string;
+  file_size: number;
+  sha256_hash: string;
+  version: number;
+  parent_document_id: number | null;
+  processing_status: string;
+  processing_started_at: string | null;
+  processing_completed_at: string | null;
+  processing_error: string | null;
+  processing_note: string | null;
+  page_count: number | null;
+  ocr_used: boolean;
+  is_archived: boolean;
+  created_at: string;
+  updated_at: string;
+  text_preview: string;
+  duplicate?: boolean;
+}
+
+export interface KBPreview {
+  id: number;
+  processing_status: string;
+  ocr_used: boolean;
+  page_count: number | null;
+  extracted_text: string;
+  sections: { type: string; text: string; page?: number; source?: string }[];
+}
+
 async function reqBlob(path: string): Promise<Blob> {
   const t = getToken();
   const res = await fetch(`${BASE}${path}`, {
@@ -44,6 +81,35 @@ async function reqBlob(path: string): Promise<Blob> {
     throw new Error((data as { detail?: string }).detail ?? `Request failed (${res.status})`);
   }
   return res.blob();
+}
+
+/** Real upload with progress (fetch has no upload progress → XHR). */
+export function uploadDocument(
+  file: File, equipmentId: number | null, onProgress: (pct: number) => void
+): Promise<KBDocument> {
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open("POST", `${BASE}/api/documents`);
+    const t = getToken();
+    if (t) xhr.setRequestHeader("Authorization", `Bearer ${t}`);
+    xhr.upload.onprogress = (e) => {
+      if (e.lengthComputable) onProgress(Math.round((e.loaded / e.total) * 100));
+    };
+    xhr.onload = () => {
+      try {
+        const data = JSON.parse(xhr.responseText);
+        if (xhr.status >= 200 && xhr.status < 300) resolve(data as KBDocument);
+        else reject(new Error((data as { detail?: string }).detail ?? `Upload failed (${xhr.status})`));
+      } catch {
+        reject(new Error(`Upload failed (${xhr.status})`));
+      }
+    };
+    xhr.onerror = () => reject(new Error("Upload failed (network)"));
+    const fd = new FormData();
+    fd.append("file", file);
+    if (equipmentId) fd.append("equipment_id", String(equipmentId));
+    xhr.send(fd);
+  });
 }
 
 export function setToken(t: string | null) {
@@ -105,4 +171,21 @@ export const api = {
   equipmentHistory: (id: number) =>
     req<{ history: { id: number; user_id: number; action: string; detail: string; created_at: string }[] }>(
       `/api/equipment/${id}/history`),
+  kbList: (params: Record<string, string | number | boolean | undefined>) => {
+    const q = Object.entries(params)
+      .filter(([, v]) => v !== undefined && v !== "")
+      .map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(String(v))}`)
+      .join("&");
+    return req<{ documents: KBDocument[]; total: number; page: number; page_size: number }>(
+      `/api/documents${q ? `?${q}` : ""}`);
+  },
+  kbGet: (id: number) => req<KBDocument>(`/api/documents/${id}`),
+  kbPreview: (id: number) => req<KBPreview>(`/api/documents/${id}/preview`),
+  kbDownload: (id: number) => reqBlob(`/api/documents/${id}/download`),
+  kbArchive: (id: number) =>
+    req<{ message: string }>(`/api/documents/${id}/archive`, { method: "POST" }),
+  kbRetry: (id: number) =>
+    req<KBDocument>(`/api/documents/${id}/retry`, { method: "POST" }),
+  kbDelete: (id: number) =>
+    req<{ message: string }>(`/api/documents/${id}`, { method: "DELETE" }),
 };

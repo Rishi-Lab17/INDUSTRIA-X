@@ -54,6 +54,14 @@ class Settings(BaseSettings):
     STORAGE_SENSORS: str = "./storage/sensor_data"
     STORAGE_REPORTS: str = "./storage/reports"
     STORAGE_TEMP: str = "./storage/temporary"
+    MAX_UPLOAD_SIZE_MB: int = 50
+
+    # --- Stage 3 knowledge base: all local, no external calls ---
+    OCR_ENABLED: bool = True
+    OCR_PROVIDER: str = "tesseract"
+    OCR_TIMEOUT_S: int = 60
+    DOC_MAX_ROWS: int = 20000
+    EXTRACT_MAX_CHARS: int = 500000
 
     AI_PROVIDER: str = "kimi-k3"
     AI_ACTIVE_MODEL: str = "kimi-k3"

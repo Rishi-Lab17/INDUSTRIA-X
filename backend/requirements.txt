@@ -8,6 +8,9 @@ python-multipart==0.0.20
 httpx==0.28.1
 qrcode==8.2
 pillow==11.2.1
+pypdf==6.16.2
+python-docx==1.2.0
+openpyxl==3.1.5
 firebase-admin==7.5.0
 pytest==8.3.5
 pytest-asyncio==1.1.0

@@ -89,3 +89,39 @@ CREATE TABLE IF NOT EXISTS equipment (
 );
 CREATE INDEX IF NOT EXISTS idx_equipment_company ON equipment(company_id);
 CREATE INDEX IF NOT EXISTS idx_equipment_code ON equipment(company_id, code);
+
+-- Stage 3: knowledge-base documents. Tenant-scoped via company_id; files live
+-- under storage/documents|images/{company_id}/{document_id}/, never by raw
+-- filename. Versions chain via parent_document_id; retry never versions.
+CREATE TABLE IF NOT EXISTS documents (
+  id                  INTEGER PRIMARY KEY AUTOINCREMENT,
+  company_id          INTEGER NOT NULL REFERENCES companies(id),
+  equipment_id        INTEGER REFERENCES equipment(id),
+  uploaded_by         INTEGER REFERENCES users(id),
+  original_filename   TEXT NOT NULL,
+  storage_key         TEXT NOT NULL,
+  file_type           TEXT NOT NULL CHECK (file_type IN
+                      ('PDF','DOCX','TXT','CSV','XLSX','JPG','JPEG','PNG')),
+  mime_type           TEXT NOT NULL,
+  file_size           INTEGER NOT NULL,
+  sha256_hash         TEXT NOT NULL,
+  version             INTEGER NOT NULL DEFAULT 1,
+  parent_document_id  INTEGER REFERENCES documents(id),
+  processing_status   TEXT NOT NULL DEFAULT 'UPLOADED' CHECK (processing_status IN
+                      ('UPLOADED','QUEUED','PROCESSING','COMPLETED','FAILED','RETRYING','ARCHIVED')),
+  processing_started_at   TEXT,
+  processing_completed_at TEXT,
+  processing_error    TEXT,
+  processing_note     TEXT,
+  extracted_text      TEXT NOT NULL DEFAULT '',
+  extracted_json      TEXT NOT NULL DEFAULT '{}',
+  page_count          INTEGER,
+  ocr_used            INTEGER NOT NULL DEFAULT 0,
+  is_archived         INTEGER NOT NULL DEFAULT 0,
+  created_at          TEXT NOT NULL DEFAULT (datetime('now')),
+  updated_at          TEXT NOT NULL DEFAULT (datetime('now'))
+);
+CREATE INDEX IF NOT EXISTS idx_documents_company ON documents(company_id);
+CREATE INDEX IF NOT EXISTS idx_documents_equipment ON documents(equipment_id);
+CREATE INDEX IF NOT EXISTS idx_documents_status ON documents(processing_status);
+CREATE INDEX IF NOT EXISTS idx_documents_hash ON documents(company_id, sha256_hash);

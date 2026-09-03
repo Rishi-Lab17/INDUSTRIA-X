@@ -10,6 +10,8 @@ import Workspace from "./pages/Workspace";
 import EquipmentList from "./pages/EquipmentList";
 import EquipmentForm from "./pages/EquipmentForm";
 import EquipmentDetail from "./pages/EquipmentDetail";
+import KnowledgeBase from "./pages/KnowledgeBase";
+import DocumentDetail from "./pages/DocumentDetail";
 import Stub from "./pages/Stub";
 import type { JSX } from "react";
 
@@ -36,8 +38,8 @@ export default function App() {
             <Route path="equipment/new" element={<EquipmentForm />} />
             <Route path="equipment/:id" element={<EquipmentDetail />} />
             <Route path="equipment/:id/edit" element={<EquipmentForm />} />
-            <Route path="verify-phone" element={<PhoneVerify />} />
-            <Route path="knowledge" element={<Stub title="Knowledge Base" stage="Stage 3" desc="Secure document upload, OCR and processing pipeline." />} />
+            <Route path="knowledge" element={<KnowledgeBase />} />
+            <Route path="knowledge/:id" element={<DocumentDetail />} />
             <Route path="investigations" element={<Stub title="Investigations" stage="Stage 5–8" desc="Agentic workbench, hypotheses, verification and approval." />} />
             <Route path="evidence" element={<Stub title="Evidence Center" stage="Stage 7" desc="Structured evidence cards and evidence graph." />} />
             <Route path="audit" element={<Stub title="Audit Trail" stage="Stage 9" desc="Searchable audit log of every important action." />} />

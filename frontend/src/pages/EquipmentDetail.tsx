@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import { api, type Equipment } from "../api";
+import { api, type Equipment, type KBDocument } from "../api";
 import { critColor, statusColor, useRole } from "../components/equipment";
 
 interface HistItem {
@@ -19,6 +19,7 @@ export default function EquipmentDetail() {
   const [eq, setEq] = useState<Equipment | null>(null);
   const [qr, setQr] = useState<string | null>(null);
   const [hist, setHist] = useState<HistItem[]>([]);
+  const [docs, setDocs] = useState<KBDocument[]>([]);
   const [err, setErr] = useState("");
   const [ok, setOk] = useState("");
 
@@ -32,6 +33,9 @@ export default function EquipmentDetail() {
     api.equipmentHistory(eid)
       .then((r) => setHist(r.history))
       .catch(() => setHist([]));
+    api.kbList({ equipment_id: eid })
+      .then((r) => setDocs(r.documents))
+      .catch(() => setDocs([]));
     return () => {
       if (qr) URL.revokeObjectURL(qr);
     };
@@ -115,6 +119,20 @@ export default function EquipmentDetail() {
                 <div className="kv" key={h.id}>
                   <span>{h.action.replaceAll("_", " ")}</span>
                   <span style={{ color: "var(--muted)", fontSize: 12 }}>{h.created_at}</span>
+                </div>
+              ))
+            )}
+          </div>
+
+          <div className="panel" style={{ marginTop: 16 }}>
+            <h3 style={{ marginTop: 0 }}>Linked Documents ({docs.length})</h3>
+            {docs.length === 0 ? (
+              <div style={{ fontSize: 13, color: "var(--muted)" }}>No documents linked to this equipment.</div>
+            ) : (
+              docs.map((d) => (
+                <div className="kv" key={d.id}>
+                  <span><Link to={`/knowledge/${d.id}`}>{d.original_filename}</Link> (v{d.version})</span>
+                  <span style={{ color: "var(--muted)", fontSize: 12 }}>{d.processing_status}</span>
                 </div>
               ))
             )}

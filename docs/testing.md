@@ -1,6 +1,6 @@
-# Testing (Stage 1 + email-OTP hardening + Stage 2)
+# Testing (Stage 1 + email-OTP hardening + Stage 2 + Stage 3)
 
-Run from the root: `python -m pytest tests/ -v` (25 tests, all passing).
+Run from the root: `python -m pytest tests/ -v` (39 tests, all passing).
 
 `tests/test_stage1_auth.py` (5 tests): full register→verify→login→me→logout→
 revoked flow (OTP read from the fake provider's server-side record, never the
@@ -32,6 +32,15 @@ engineer no-delete, admin full), cross-company 404s on every endpoint,
 per-company code reuse, validation/422s, QR PNG magic + payload + auth,
 unauthenticated blocking, per-asset history ordering with audit persistence
 after deactivation.
+
+`tests/test_stage3_documents.py` (14 tests): auth-required, RBAC matrix
+(tech upload/view/download only; engineer retry; admin archive/delete),
+all-format uploads with real content assertions, rejections (extension/MIME/
+traversal/empty/oversize/vendor-MIME acceptance), malformed-PDF safety + error
+leak scan, retry success/fail paths (never versions), SHA-256 + duplicate +
+version chains, storage layout safety, full cross-company 404s, download
+bytes/type, preview shape, filters + injection probe, archive/delete semantics,
+complete audit trail, OCR-abstraction honesty (unavailable engine).
 
 Failure matrix covers: invalid login, unverified login, wrong/expired/reused
 OTP, resend cooldown + hourly cap, verify brute-force, Resend outage/reject,

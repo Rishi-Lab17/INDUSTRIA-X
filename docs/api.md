@@ -51,3 +51,16 @@ Company + equipment — Stage 2 (`routers/company.py`, `routers/equipment.py`):
 - `DELETE /api/equipment/{id}` (ADMIN) → soft deactivate (history kept).
 - `GET /api/equipment/{id}/qr` (all roles) → PNG QR of the passport payload.
 - `GET /api/equipment/{id}/history` (ADMIN, ENGINEER) → per-asset audit trail.
+
+Knowledge Base — Stage 3 (`routers/documents.py`, `processing/`):
+
+- `POST /api/documents` (multipart file + optional equipment_id; all roles)
+  → 201 metadata; identical bytes → 200 `{duplicate: true}`; 413 oversize;
+  422 validation. Synchronous local processing to COMPLETED/FAILED.
+- `GET /api/documents` (filters: equipment_id, file_type, processing_status,
+  is_archived, search, page/page_size) → metadata + 300-char preview only.
+- `GET /api/documents/{id}` · `GET /{id}/preview` (full text + sections) ·
+  `GET /{id}/download` (streamed, safe filename).
+- `POST /{id}/retry` (ADMIN, ENGINEER; FAILED only) — never versions.
+- `POST /{id}/archive` + `DELETE /{id}` (ADMIN; soft-hide / permanent + audit).
+- Cross-company ids → 404 everywhere; errors sanitized.
