@@ -72,8 +72,9 @@ export default function Verify() {
         </p>
         {devMode && (
           <div className="alert alert-warn">
-            Development mode — no email was sent. Read the code from the
-            server&apos;s local outbox: <b>storage/temporary/dev-outbox</b>.
+            Development mode — no email was sent. The OTP was generated locally;
+            read it from the server&apos;s local outbox:{" "}
+            <b>storage/temporary/dev-outbox</b>.
           </div>
         )}
         {err && <div className="alert alert-error">{err}</div>}
