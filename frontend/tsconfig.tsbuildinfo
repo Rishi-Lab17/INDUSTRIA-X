@@ -1,1 +1,0 @@
-{"root":["./src/app.tsx","./src/api.ts","./src/auth.tsx","./src/main.tsx","./src/vite-env.d.ts","./src/components/healthpanel.tsx","./src/components/layout.tsx","./src/components/sovereigntybadge.tsx","./src/pages/dashboard.tsx","./src/pages/login.tsx","./src/pages/register.tsx","./src/pages/stub.tsx","./src/pages/verify.tsx"],"version":"5.9.3"}
