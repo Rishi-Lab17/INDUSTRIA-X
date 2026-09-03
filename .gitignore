@@ -60,3 +60,6 @@ models/
 
 # TS build info
 *.tsbuildinfo
+
+# pytest cache
+.pytest_cache/
