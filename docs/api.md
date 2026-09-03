@@ -4,9 +4,20 @@ Base: `http://127.0.0.1:8000`. Interactive docs: `/docs`.
 
 Auth (`backend/app/routers/auth.py`):
 
-- `POST /api/auth/register` {company_name, name, email, password} → 201
-  {company_id, user_id, dev_otp?} (`dev_otp` only when `APP_ENV=local`).
-- `POST /api/auth/verify-otp` {email, code} → activates account.
+- `POST /api/auth/register` {company_name, name, email, password, mobile_number?}
+  → 201 {message: "Verification code sent to your email address.", email_masked}.
+  The 6-digit OTP is emailed via SMTP and NEVER appears in the response.
+  No SMTP configured → HTTP 502 (fails loudly, never faked).
+- `POST /api/auth/verify-otp` {email, code} → "Email verified successfully."
+  Wrong → 400 "Invalid verification code. Please try again."; expired/consumed
+  → 400 "Verification code expired. Please request a new code."; >10 tries/10min
+  → 429. Single-use: consumed immediately on success (no replay).
+- `POST /api/auth/resend-otp` {email} → invalidates all pending codes, emails a
+  fresh one. 60s cooldown per email (429 + Retry-After), 5/hour cap. Unknown or
+  already-verified emails get a generic success (no enumeration).
+- `POST /api/auth/phone/link` (auth) {id_token} → verifies Firebase ID token,
+  links phone_number. Firebase unconfigured → 501; bad token → 401. Firebase
+  only proves number ownership; company/RBAC/sessions/audit stay INDUSTRIA-X.
 - `POST /api/auth/login` {email, password} → {access_token, user}.
 - `POST /api/auth/logout` (auth) → revokes session jti.
 - `GET /api/auth/me` (auth) → {user, company}.

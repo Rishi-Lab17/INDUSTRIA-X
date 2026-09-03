@@ -16,6 +16,8 @@ CREATE TABLE IF NOT EXISTS users (
   password_hash TEXT NOT NULL,
   role          TEXT NOT NULL CHECK (role IN ('COMPANY_ADMIN','ENGINEER','TECHNICIAN')),
   is_active     INTEGER NOT NULL DEFAULT 0,
+  phone         TEXT,
+  phone_verified INTEGER NOT NULL DEFAULT 0,
   created_at    TEXT NOT NULL DEFAULT (datetime('now'))
 );
 CREATE INDEX IF NOT EXISTS idx_users_company ON users(company_id);

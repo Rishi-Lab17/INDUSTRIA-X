@@ -25,6 +25,12 @@ def init_db() -> None:
     con = connect()
     try:
         con.executescript(schema)
+        # Lightweight forward-migration for pre-existing databases.
+        cols = {r[1] for r in con.execute("PRAGMA table_info(users)").fetchall()}
+        if "phone" not in cols:
+            con.execute("ALTER TABLE users ADD COLUMN phone TEXT")
+        if "phone_verified" not in cols:
+            con.execute("ALTER TABLE users ADD COLUMN phone_verified INTEGER NOT NULL DEFAULT 0")
         con.commit()
     finally:
         con.close()

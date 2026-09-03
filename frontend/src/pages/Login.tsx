@@ -51,7 +51,7 @@ export default function Login() {
         </form>
         <div className="auth-switch">
           No company yet? <Link to="/register">Register company</Link> ·{" "}
-          <Link to="/verify">Verify OTP</Link>
+          <Link to="/verify">Verify email</Link>
         </div>
         <LiveProbe />
       </div>
