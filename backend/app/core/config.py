@@ -21,8 +21,27 @@ class Settings(BaseSettings):
     JWT_SECRET: str = "change-me-to-a-long-random-secret-min-32-chars"
     JWT_ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 720
-    OTP_EXPIRE_MINUTES: int = 10
+    OTP_EXPIRE_MINUTES: int = 5
+    OTP_MAX_ATTEMPTS: int = 5
+    OTP_VERIFY_MAX_PER_WINDOW: int = 10
+    OTP_VERIFY_WINDOW_S: int = 600
+    OTP_RESEND_COOLDOWN_S: int = 60
+    OTP_RESEND_MAX_PER_HOUR: int = 5
     BCRYPT_ROUNDS: int = 12
+
+    # --- Email (SMTP). All credentials from env; never hardcoded. ---
+    SMTP_HOST: str = ""
+    SMTP_PORT: int = 587
+    SMTP_USERNAME: str = ""
+    SMTP_PASSWORD: str = ""
+    SMTP_USE_TLS: bool = True
+    SMTP_TIMEOUT_S: int = 10
+    SMTP_FROM_EMAIL: str = ""
+    SMTP_FROM_NAME: str = "INDUSTRIA-X"
+
+    # --- Firebase phone auth (verification only; authZ stays in INDUSTRIA-X) ---
+    FIREBASE_PROJECT_ID: str = ""
+    FIREBASE_CREDENTIALS_FILE: str = ""
 
     STORAGE_DOCUMENTS: str = "./storage/documents"
     STORAGE_IMAGES: str = "./storage/images"

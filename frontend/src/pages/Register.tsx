@@ -6,6 +6,7 @@ export default function Register() {
   const [companyName, setCompanyName] = useState("");
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
+  const [mobile, setMobile] = useState("");
   const [password, setPassword] = useState("");
   const [err, setErr] = useState("");
   const [busy, setBusy] = useState(false);
@@ -16,12 +17,13 @@ export default function Register() {
     setErr("");
     setBusy(true);
     try {
-      const r = await api.register({
+      await api.register({
         company_name: companyName.trim(), name: name.trim(),
         email: email.trim(), password,
+        mobile_number: mobile.trim() || undefined,
       });
-      // Local-dev: backend returns the OTP so the demo works without email.
-      nav("/verify", { state: { email: email.trim(), devOtp: r.dev_otp } });
+      // The OTP is emailed to the user. It is NEVER returned, displayed, or logged.
+      nav("/verify", { state: { email: email.trim() } });
     } catch (e) {
       setErr(e instanceof Error ? e.message : "Registration failed");
     } finally {
@@ -49,13 +51,17 @@ export default function Register() {
             <input value={email} onChange={(e) => setEmail(e.target.value)} autoComplete="username" />
           </div>
           <div className="field">
+            <label>MOBILE NUMBER (OPTIONAL, E.G. +919876543210)</label>
+            <input value={mobile} onChange={(e) => setMobile(e.target.value)} autoComplete="tel" placeholder="+91…" />
+          </div>
+          <div className="field">
             <label>PASSWORD (MIN 8 CHARS)</label>
             <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} autoComplete="new-password" />
           </div>
           <button className="btn" disabled={busy}>{busy ? "Registering…" : "Register company"}</button>
         </form>
         <div className="auth-switch">
-          <Link to="/login">Back to login</Link> · <Link to="/verify">Verify OTP</Link>
+          <Link to="/login">Back to login</Link> · <Link to="/verify">Verify email</Link>
         </div>
       </div>
     </div>

@@ -5,6 +5,7 @@ import Dashboard from "./pages/Dashboard";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
 import Verify from "./pages/Verify";
+import PhoneVerify from "./pages/PhoneVerify";
 import Stub from "./pages/Stub";
 import type { JSX } from "react";
 
@@ -25,6 +26,7 @@ export default function App() {
           <Route path="/verify" element={<Verify />} />
           <Route path="/" element={<Guard><Layout /></Guard>}>
             <Route index element={<Dashboard />} />
+            <Route path="verify-phone" element={<PhoneVerify />} />
             <Route path="workspace" element={<Stub title="Company Workspace" stage="Stage 2" desc="Tenant members, roles and equipment fleet overview." />} />
             <Route path="equipment" element={<Stub title="Equipment" stage="Stage 2" desc="Equipment Digital Passport with QR identity." />} />
             <Route path="knowledge" element={<Stub title="Knowledge Base" stage="Stage 3" desc="Secure document upload, OCR and processing pipeline." />} />

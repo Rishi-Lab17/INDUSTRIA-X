@@ -1,29 +1,5 @@
-"""Stage 1 tests: auth, OTP, sessions, RBAC, tenant isolation, system probes."""
-import os
-import tempfile
-
-_tmp = tempfile.NamedTemporaryFile(suffix=".db", delete=False)
-_tmp.close()
-os.environ["DATABASE_URL"] = f"sqlite:///{_tmp.name}"
-os.environ["BCRYPT_ROUNDS"] = "4"
-os.environ["APP_ENV"] = "local"
-
-import sys
-from pathlib import Path
-
-ROOT = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(ROOT / "backend"))
-
-from fastapi.testclient import TestClient  # noqa: E402
-
-from app.core.config import get_settings  # noqa: E402
-
-get_settings.cache_clear()
-from app.main import app  # noqa: E402
-
-# Enter lifespan (runs init_db) — plain TestClient() would skip startup.
-client = TestClient(app)
-client.__enter__()
+"""Stage 1 tests: auth, OTP-via-email, sessions, RBAC, tenant isolation, system probes."""
+from helpers import client, code_for
 
 
 def _register(company="Acme Industries", name="A Admin", email="admin@acme.test",
@@ -45,7 +21,9 @@ def _auth(email, password):
 def test_register_verify_login_me_logout():
     r = _register()
     assert r.status_code == 201, r.text
-    otp = r.json()["dev_otp"]
+    assert r.json()["message"] == "Verification code sent to your email address."
+    assert "otp" not in r.text.lower() and "dev_otp" not in r.text
+    otp = code_for("admin@acme.test")  # server-side sink inbox, never the API
 
     # login before verification must be rejected
     assert _login("admin@acme.test", "Str0ngPass!").status_code == 403
@@ -112,7 +90,8 @@ def test_rbac_and_tenant_isolation():
                   email="admin@globex.test", password="Str0ngPass!")
     assert r.status_code == 201
     client.post("/api/auth/verify-otp",
-                json={"email": "admin@globex.test", "code": r.json()["dev_otp"]})
+                json={"email": "admin@globex.test",
+                      "code": code_for("admin@globex.test")})
     hg = _auth("admin@globex.test", "Str0ngPass!")
 
     users_g = client.get("/api/auth/users", headers=hg).json()["users"]

@@ -35,11 +35,17 @@ async function req<T>(path: string, opts: RequestInit = {}, auth = true): Promis
 }
 
 export const api = {
-  register: (b: { company_name: string; name: string; email: string; password: string }) =>
-    req<{ company_id: number; user_id: number; message: string; dev_otp?: string }>(
+  register: (b: { company_name: string; name: string; email: string; password: string; mobile_number?: string }) =>
+    req<{ message: string; email_masked: string }>(
       "/api/auth/register", { method: "POST", body: JSON.stringify(b) }, false),
   verifyOtp: (b: { email: string; code: string }) =>
     req<{ message: string }>("/api/auth/verify-otp", { method: "POST", body: JSON.stringify(b) }, false),
+  resendOtp: (b: { email: string }) =>
+    req<{ message: string; email_masked?: string }>("/api/auth/resend-otp", {
+      method: "POST", body: JSON.stringify(b) }, false),
+  linkPhone: (b: { id_token: string }) =>
+    req<{ message: string; phone_masked: string }>("/api/auth/phone/link", {
+      method: "POST", body: JSON.stringify(b) }),
   login: (b: { email: string; password: string }) =>
     req<{ access_token: string; user: User }>("/api/auth/login", {
       method: "POST", body: JSON.stringify(b) }, false),
