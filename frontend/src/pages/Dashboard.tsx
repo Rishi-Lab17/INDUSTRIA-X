@@ -46,7 +46,8 @@ export default function Dashboard() {
             <div style={{ color: "var(--muted)" }}>Loading…</div>
           ) : (
             (["ai_inference", "document_processing", "knowledge_base", "vector_db",
-              "industrial_data", "external_ai", "external_fallback"] as const).map((k) => (
+              "industrial_data", "external_ai", "external_fallback",
+              "email_delivery"] as const).map((k) => (
               <div className="kv" key={k}>
                 <span>{k.toUpperCase().replaceAll("_", " ")}</span>
                 <span>{String(sov[k])}</span>

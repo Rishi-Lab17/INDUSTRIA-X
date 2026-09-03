@@ -83,6 +83,19 @@ def health():
         services["dev_model"] = {"status": "OFFLINE",
                                  "detail": "Ollama not running on this machine"}
 
+    # Email delivery provider: resend only with a real key, else local outbox.
+    # Never reported as external/online unless Resend is actually configured.
+    from ..services import email_service
+    if email_service.resend_wanted() and s.RESEND_FROM_EMAIL:
+        services["email_provider"] = {"status": "ONLINE",
+                                      "detail": "Resend (explicitly configured)"}
+    elif email_service.resend_wanted():
+        services["email_provider"] = {"status": "DEGRADED",
+                                      "detail": "Resend enabled but RESEND_FROM_EMAIL missing"}
+    else:
+        services["email_provider"] = {"status": "ONLINE",
+                                      "detail": "Development outbox (local, no external delivery)"}
+
     # Stages not built yet report honestly instead of pretending.
     services["rag"] = {"status": "OFFLINE", "detail": "Stage 4 not implemented yet"}
     services["vector_db"] = {"status": "OFFLINE", "detail": "Stage 4 not implemented yet"}
@@ -112,6 +125,12 @@ def sovereignty():
         "industrial_data": s.SOV_INDUSTRIAL_DATA,
         "external_ai": s.EXTERNAL_AI,
         "external_fallback": s.EXTERNAL_FALLBACK,
+        # Email delivery is independent of AI sovereignty: resend is external
+        # and optional; the development outbox is fully local.
+        "email_delivery": ("resend (external, explicitly configured)"
+                           if (s.RESEND_ENABLED and s.RESEND_API_KEY
+                               and s.RESEND_FROM_EMAIL)
+                           else "development_outbox (local)"),
         "ai_provider": s.AI_PROVIDER,
         "ai_active_model": s.KIMI_K3_MODEL if kimi_reachable else "none",
         "kimi_reachable": kimi_reachable,

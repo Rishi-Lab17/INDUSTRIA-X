@@ -1,11 +1,13 @@
-"""Email-OTP verification tests: real Resend HTTP call to a fake provider,
-no OTP in API, single-use, expiry, resend invalidation, cooldown, rate limits,
-replay/brute-force protection, Resend-failure safety, unconfigured-provider
-refusal, Firebase-unconfigured honesty."""
+"""Email-OTP verification tests: provider abstraction (Resend vs development
+outbox), real Resend HTTP call to a fake provider, no OTP in API, single-use,
+expiry, resend invalidation, cooldown, rate limits, replay/brute-force
+protection, Resend-failure safety, unconfigured-provider refusal,
+log-leak audit, Firebase-unconfigured honesty."""
 import re
 
 from app.core.config import get_settings
 from app.core.rate_limit import allow, reset_all
+from app.services import email_service
 from helpers import client, code_for, db, fake
 
 N = 0
@@ -23,6 +25,25 @@ def _register(email, company, mobile="+919876543210"):
     if mobile is not None:
         body["mobile_number"] = mobile
     return client.post("/api/auth/register", json=body)
+
+
+def test_provider_selection():
+    # Test: key + flag → Resend; missing key / disabled flag → development.
+    from app.services.email_service import (DevelopmentEmailProvider,
+                                            ResendEmailProvider, get_provider)
+    s = get_settings()
+    old = (s.RESEND_ENABLED, s.RESEND_API_KEY, s.RESEND_FROM_EMAIL)
+    try:
+        s.RESEND_ENABLED, s.RESEND_API_KEY, s.RESEND_FROM_EMAIL = True, "k", "f@x.test"
+        assert isinstance(get_provider(), ResendEmailProvider)
+        s.RESEND_API_KEY = ""
+        assert isinstance(get_provider(), DevelopmentEmailProvider)
+        s.RESEND_ENABLED, s.RESEND_API_KEY = False, "k"
+        assert isinstance(get_provider(), DevelopmentEmailProvider)
+    finally:
+        s.RESEND_ENABLED, s.RESEND_API_KEY, s.RESEND_FROM_EMAIL = old
+    assert email_service.DEV_MODE == "dev-outbox"
+    assert email_service.RESEND_MODE == "resend"
 
 
 def test_register_sends_via_resend_and_hides_otp():
@@ -225,27 +246,37 @@ def test_register_fails_loudly_without_provider_outside_local():
 
 
 def test_dev_outbox_flow_local_no_provider():
-    # Documented local mechanism: code saved to a server-side outbox FILE.
-    # The API response and UI still never carry the code.
+    # Test A (documented local mechanism): no key → 201 (never 500/502),
+    # OTP hashed, outbox file holds recipient/subject/OTP/timestamps/purpose,
+    # and NO external provider call occurs. API/UI still never carry the code.
     import tempfile
     from pathlib import Path
     s = get_settings()
     old_key, old_dir = s.RESEND_API_KEY, s.DEV_OUTBOX_DIR
     tmp = tempfile.mkdtemp(prefix="ix-outbox-")
     s.RESEND_API_KEY, s.DEV_OUTBOX_DIR = "", tmp
+    n_calls = len(fake.requests)
     try:
         email, company = _next("devbox")
         r = _register(email, company)
         assert r.status_code == 201, r.text
         body = r.json()
         assert body["dev_mode"] is True
-        assert "Development mode" in body["message"]
+        assert body["message"] == ("Development mode: no external email was sent. Your"
+                                   " verification code is available in the local"
+                                   " development outbox.")
         assert "dev_otp" not in r.text and '"otp"' not in r.text
+        assert len(fake.requests) == n_calls  # no external call happened
 
         safe = re.sub(r"[^a-z0-9]", "_", email.lower())
         eml = Path(tmp) / f"{safe}.eml"
         assert eml.exists()
-        codes = re.findall(r"(?m)^(\d{6})\r?$", eml.read_text(encoding="utf-8"))
+        content = eml.read_text(encoding="utf-8")
+        assert f"To: {email}" in content
+        assert "Subject: INDUSTRIA-X Email Verification" in content
+        assert "Purpose: email-verification" in content
+        assert "Created-At: " in content and "Expires-At: " in content
+        codes = re.findall(r"(?m)^(\d{6})\r?$", content)
         assert len(codes) == 1
 
         vr = client.post("/api/auth/verify-otp",
@@ -265,6 +296,50 @@ def test_password_length_rules():
         "company_name": company, "name": "T User",
         "email": email, "password": "x" * 73})
     assert r.status_code == 422  # bcrypt 72-byte limit enforced loudly
+
+
+def test_health_reports_email_provider_and_sovereignty():
+    # Test env has key+sender → Resend reported; without key → local outbox.
+    # external_ai stays BLOCKED regardless (email ≠ AI).
+    h = client.get("/api/health").json()
+    assert h["services"]["email_provider"]["status"] == "ONLINE"
+    assert "Resend" in h["services"]["email_provider"]["detail"]
+    sov = client.get("/api/sovereignty").json()
+    assert sov["email_delivery"] == "resend (external, explicitly configured)"
+    assert sov["external_ai"] == "BLOCKED"
+
+    s = get_settings()
+    old = s.RESEND_API_KEY
+    s.RESEND_API_KEY = ""
+    try:
+        h = client.get("/api/health").json()
+        assert "outbox" in h["services"]["email_provider"]["detail"].lower()
+        sov = client.get("/api/sovereignty").json()
+        assert sov["email_delivery"] == "development_outbox (local)"
+        assert sov["external_ai"] == "BLOCKED"
+    finally:
+        s.RESEND_API_KEY = old
+
+
+def test_no_secret_leak_in_logs(caplog):
+    # Test I: captured logs must not contain the OTP, the provider key,
+    # auth headers, or session JWTs.
+    import logging
+    email, company = _next("leak")
+    with caplog.at_level(logging.INFO, logger="industria-x.email"):
+        assert _register(email, company).status_code == 201
+        code = code_for(email)
+        client.post("/api/auth/verify-otp", json={"email": email, "code": "000000"})
+        assert client.post("/api/auth/verify-otp",
+                           json={"email": email, "code": code}).status_code == 200
+        lr = client.post("/api/auth/login",
+                         json={"email": email, "password": "Str0ngPass!"})
+        token = lr.json()["access_token"]
+    logs = "\n".join(r.getMessage() for r in caplog.records)
+    assert code not in logs
+    assert "test-key-not-a-secret" not in logs
+    assert "Authorization" not in logs
+    assert token not in logs
 
 
 def test_phone_link_requires_firebase():

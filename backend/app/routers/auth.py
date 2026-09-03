@@ -167,7 +167,8 @@ def register(body: RegisterIn, request: Request):
     # Deliver OUT-OF-BAND only. The code never appears in any API response,
     # log line, or frontend view.
     try:
-        mode = email_service.send_verification_code(body.email, body.name, code)
+        mode = email_service.send_verification_email(
+            recipient=body.email, name=body.name, code=code, expires_at=exp)
     except email_service.EmailNotConfigured as e:
         log_event("register_email_failed", {"email": body.email, "reason": "not_configured"},
                   company_id=company_id, user_id=user_id, ip=_client_ip(request))
@@ -183,9 +184,9 @@ def register(body: RegisterIn, request: Request):
     log_event("register", {"email": body.email, "mode": mode}, company_id=company_id,
               user_id=user_id, ip=_client_ip(request))
     if mode == "dev-outbox":
-        return {"message": "Development mode: no email was sent. Your OTP was"
-                           " generated locally and saved to the server's local outbox"
-                           " (storage/temporary/dev-outbox).",
+        return {"message": "Development mode: no external email was sent. Your"
+                           " verification code is available in the local"
+                           " development outbox.",
                 "email_masked": mask_email(body.email), "dev_mode": True}
     return {"message": "Verification code sent to your email address.",
             "email_masked": mask_email(body.email), "dev_mode": False}
@@ -286,7 +287,8 @@ def resend_otp(body: ResendOtpIn, request: Request):
     finally:
         con.close()
     try:
-        mode = email_service.send_verification_code(email, name, code)
+        mode = email_service.send_verification_email(
+            recipient=email, name=name, code=code, expires_at=exp)
     except email_service.EmailError:
         log_event("resend_email_failed", {"email": email},
                   company_id=company_id, user_id=user_id, ip=_client_ip(request))
@@ -298,9 +300,9 @@ def resend_otp(body: ResendOtpIn, request: Request):
     log_event("otp_resent", {"email": email, "mode": mode}, company_id=company_id,
               user_id=user_id, ip=_client_ip(request))
     if mode == "dev-outbox":
-        return {"message": "Development mode: no email was sent. Your new OTP was"
-                           " generated locally and saved to the server's local outbox"
-                           " (storage/temporary/dev-outbox).",
+        return {"message": "Development mode: no external email was sent. Your"
+                           " verification code is available in the local"
+                           " development outbox.",
                 "email_masked": mask_email(email), "dev_mode": True}
     return {"message": "Verification code sent to your email address.",
             "email_masked": mask_email(email), "dev_mode": False}
