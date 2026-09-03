@@ -29,17 +29,15 @@ class Settings(BaseSettings):
     OTP_RESEND_MAX_PER_HOUR: int = 5
     BCRYPT_ROUNDS: int = 12
 
-    # --- Email (SMTP). All credentials from env; never hardcoded. ---
-    SMTP_HOST: str = ""
-    SMTP_PORT: int = 587
-    SMTP_USERNAME: str = ""
-    SMTP_PASSWORD: str = ""
-    SMTP_USE_TLS: bool = True
-    SMTP_TIMEOUT_S: int = 10
-    SMTP_FROM_EMAIL: str = ""
-    SMTP_FROM_NAME: str = "INDUSTRIA-X"
+    # --- Email OTP delivery (Resend API). Credentials from env; never hardcoded.
+    # The Resend call happens ONLY in the FastAPI backend, never the frontend.
+    RESEND_API_KEY: str = ""
+    RESEND_FROM_EMAIL: str = ""
+    RESEND_FROM_NAME: str = "INDUSTRIA-X"
+    RESEND_BASE_URL: str = "https://api.resend.com"
+    RESEND_TIMEOUT_S: int = 15
 
-    # Local-dev outbox: when SMTP is unconfigured AND APP_ENV=local, the
+    # Local-dev outbox: when Resend is unconfigured AND APP_ENV=local, the
     # verification email is written here as a file instead of being sent.
     # The API/UI never carry the code. Production refuses (502) instead.
     DEV_OUTBOX_DIR: str = "./storage/temporary/dev-outbox"
