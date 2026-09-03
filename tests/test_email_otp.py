@@ -1,11 +1,12 @@
-"""Email-OTP verification tests: real SMTP delivery to a sink, no OTP in API,
-single-use, expiry, resend invalidation, cooldown, rate limits, replay/brute-force
-protection, unconfigured-SMTP failure, Firebase-unconfigured honesty."""
+"""Email-OTP verification tests: real Resend HTTP call to a fake provider,
+no OTP in API, single-use, expiry, resend invalidation, cooldown, rate limits,
+replay/brute-force protection, Resend-failure safety, unconfigured-provider
+refusal, Firebase-unconfigured honesty."""
 import re
 
 from app.core.config import get_settings
 from app.core.rate_limit import allow, reset_all
-from helpers import client, code_for, db, sink
+from helpers import client, code_for, db, fake
 
 N = 0
 
@@ -24,7 +25,7 @@ def _register(email, company, mobile="+919876543210"):
     return client.post("/api/auth/register", json=body)
 
 
-def test_register_sends_real_email_and_hides_otp():
+def test_register_sends_via_resend_and_hides_otp():
     email, company = _next()
     r = _register(email, company)
     assert r.status_code == 201, r.text
@@ -32,15 +33,20 @@ def test_register_sends_real_email_and_hides_otp():
                         "email_masked": "o****@email.test", "dev_mode": False}
     assert "dev_otp" not in r.text and "verification_code" not in r.text.lower()
 
-    # Real SMTP transmission happened: envelope addressed to the exact email.
-    m = sink.last_to(email)
+    # A real HTTP call hit the provider with the right contract.
+    m = fake.last_to(email)
     assert m is not None
-    assert email in m["rcpt_tos"]
-    assert "Subject: INDUSTRIA-X Email Verification" in m["data"]
-    codes = re.findall(r"(?m)^(\d{6})\r?$", m["data"])
+    assert m["path"] == "/emails"
+    assert m["auth"].startswith("Bearer ") and len(m["auth"]) > 10
+    assert m["content_type"] == "application/json"
+    assert m["body"]["subject"] == "INDUSTRIA-X Email Verification"
+    assert m["body"]["from"] == "INDUSTRIA-X <no-reply@industria-x.test>"
+    codes = re.findall(r"(?m)^(\d{6})\r?$", m["body"].get("text", ""))
     assert len(codes) == 1
-    # The transmitted code is NOT anywhere in the API response.
+    # The transmitted code is NOT anywhere in the API response...
     assert codes[0] not in r.text
+    # ...and neither is the provider API key.
+    assert "test-key-not-a-secret" not in r.text
 
     # DB stores only a hash, user is unverified.
     con = db()
@@ -113,6 +119,8 @@ def test_resend_invalidates_previous_and_cooldown():
     r = client.post("/api/auth/resend-otp", json={"email": email})
     assert r.status_code == 200
     assert r.json()["message"] == "Verification code sent to your email address."
+    # The resend also went through Resend to the exact address.
+    assert fake.last_to(email) is not None
     second = code_for(email)
     assert second != first  # completely new code
 
@@ -132,10 +140,10 @@ def test_resend_invalidates_previous_and_cooldown():
     assert "Please wait" in r.json()["detail"]
 
     # Resend for unknown email is a generic success (no enumeration, no mail).
-    n_before = len(sink.inbox)
+    n_before = len(fake.requests)
     r = client.post("/api/auth/resend-otp", json={"email": "ghost@email.test"})
     assert r.status_code == 200
-    assert len(sink.inbox) == n_before
+    assert len(fake.requests) == n_before
 
 
 def test_verify_rate_limit_and_limiter_unit():
@@ -158,30 +166,73 @@ def test_verify_rate_limit_and_limiter_unit():
     reset_all()  # do not pollute other tests (same process, shared limiter)
 
 
-def test_register_fails_loudly_without_smtp_outside_local():
-    # Outside APP_ENV=local, unconfigured SMTP must refuse loudly (502),
+def test_resend_provider_failure_stays_unverified():
+    # Resend 500 → safe 502, account stays unverified, code never leaks.
+    email, company = _next("fail500")
+    assert _register(email, company).status_code == 201
+    fake.fail_with = (500, {"message": "internal error"})
+    try:
+        r = client.post("/api/auth/resend-otp", json={"email": email})
+        assert r.status_code == 502
+        assert "Could not send verification email" in r.json()["detail"]
+        assert "dev_otp" not in r.text and '"otp"' not in r.text
+    finally:
+        fake.fail_with = None
+    con = db()
+    try:
+        user = con.execute("SELECT is_active FROM users WHERE email = ?", (email,)).fetchone()
+        assert user and not user["is_active"]
+    finally:
+        con.close()
+
+    # Resend 429 (provider rate limit) → safe 502 as well (fresh email:
+    # our own 60s resend cooldown must not mask the provider failure).
+    email2, company2 = _next("fail429")
+    assert _register(email2, company2).status_code == 201
+    fake.fail_with = (429, {"message": "rate limited"})
+    try:
+        r = client.post("/api/auth/resend-otp", json={"email": email2})
+        assert r.status_code == 502
+    finally:
+        fake.fail_with = None
+
+    # Provider unreachable (bad base URL) → safe 502.
+    email3, company3 = _next("faildns")
+    assert _register(email3, company3).status_code == 201
+    s = get_settings()
+    old_url = s.RESEND_BASE_URL
+    s.RESEND_BASE_URL = "http://127.0.0.1:1"
+    try:
+        r = client.post("/api/auth/resend-otp", json={"email": email3})
+        assert r.status_code == 502
+    finally:
+        s.RESEND_BASE_URL = old_url
+
+
+def test_register_fails_loudly_without_provider_outside_local():
+    # Outside APP_ENV=local, unconfigured Resend must refuse loudly (502),
     # never fake delivery and never leak the code.
     s = get_settings()
-    old_host, old_env = s.SMTP_HOST, s.APP_ENV
-    s.SMTP_HOST, s.APP_ENV = "", "production"
+    old_key, old_env = s.RESEND_API_KEY, s.APP_ENV
+    s.RESEND_API_KEY, s.APP_ENV = "", "production"
     try:
-        email, company = _next("nosmtp")
+        email, company = _next("noresend")
         r = _register(email, company)
         assert r.status_code == 502
         assert "dev_otp" not in r.text and '"otp"' not in r.text
     finally:
-        s.SMTP_HOST, s.APP_ENV = old_host, old_env
+        s.RESEND_API_KEY, s.APP_ENV = old_key, old_env
 
 
-def test_dev_outbox_flow_local_no_smtp():
+def test_dev_outbox_flow_local_no_provider():
     # Documented local mechanism: code saved to a server-side outbox FILE.
     # The API response and UI still never carry the code.
     import tempfile
     from pathlib import Path
     s = get_settings()
-    old_host, old_dir = s.SMTP_HOST, s.DEV_OUTBOX_DIR
+    old_key, old_dir = s.RESEND_API_KEY, s.DEV_OUTBOX_DIR
     tmp = tempfile.mkdtemp(prefix="ix-outbox-")
-    s.SMTP_HOST, s.DEV_OUTBOX_DIR = "", tmp
+    s.RESEND_API_KEY, s.DEV_OUTBOX_DIR = "", tmp
     try:
         email, company = _next("devbox")
         r = _register(email, company)
@@ -205,7 +256,7 @@ def test_dev_outbox_flow_local_no_smtp():
                          json={"email": email, "password": "Str0ngPass!"})
         assert lr.status_code == 200
     finally:
-        s.SMTP_HOST, s.DEV_OUTBOX_DIR = old_host, old_dir
+        s.RESEND_API_KEY, s.DEV_OUTBOX_DIR = old_key, old_dir
 
 
 def test_password_length_rules():

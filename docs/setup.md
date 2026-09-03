@@ -16,11 +16,12 @@ Vite proxies `/api` → backend, so no frontend env file is needed in dev.
 `npm run build` produces `frontend/dist/` (verified). Tests:
 `python -m pytest tests/ -v` (isolated temp DB, BCRYPT_ROUNDS=4).
 
-## Email OTP in local dev (no SMTP needed)
+## Email OTP via Resend (production) / local outbox (dev)
 
-With `APP_ENV=local` and no `SMTP_*` configured, verification emails are
-written to `storage/temporary/dev-outbox/<email>.eml` (gitignored) and the
-API returns `dev_mode: true` with an explicit message — the code never
-appears in any response, log, or UI. Read the file, enter the code on the
-Verify screen. With real SMTP configured, mail is delivered and
-`dev_mode: false`. Any other `APP_ENV` without SMTP → HTTP 502 (loud).
+Set `RESEND_API_KEY` + `RESEND_FROM_EMAIL` in `.env` (key from
+https://resend.com/api-keys, verified sender domain). The FastAPI backend
+POSTs to `https://api.resend.com/emails` — the key never touches the
+frontend. With `APP_ENV=local` and no key, verification mail is written to
+`storage/temporary/dev-outbox/<email>.eml` (gitignored) and the API returns
+`dev_mode: true` with an explicit message — the code never appears in any
+response, log, or UI. Any other `APP_ENV` without a key → HTTP 502 (loud).

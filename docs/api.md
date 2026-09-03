@@ -5,10 +5,11 @@ Base: `http://127.0.0.1:8000`. Interactive docs: `/docs`.
 Auth (`backend/app/routers/auth.py`):
 
 - `POST /api/auth/register` {company_name, name, email, password, mobile_number?}
-  → 201 {message, email_masked, dev_mode}. The 6-digit OTP is emailed via SMTP
-  (`dev_mode: false`) or, when SMTP is unconfigured in local dev, saved to the
-  server-side outbox file (`dev_mode: true` + explicit message) — NEVER in the
-  response. No SMTP outside local → HTTP 502 (fails loudly, never faked).
+  → 201 {message, email_masked, dev_mode}. The 6-digit OTP is delivered via
+  the Resend API (`dev_mode: false`) or, when unconfigured in local dev, saved
+  to the server-side outbox file (`dev_mode: true` + explicit message) — NEVER
+  in the response. No provider outside local → HTTP 502 (fails loudly, never
+  faked). Resend rejects/outages → HTTP 502, account stays unverified.
 - `POST /api/auth/verify-otp` {email, code} → "Email verified successfully."
   Wrong → 400 "Invalid verification code. Please try again."; expired/consumed
   → 400 "Verification code expired. Please request a new code."; >10 tries/10min

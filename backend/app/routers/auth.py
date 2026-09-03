@@ -183,8 +183,8 @@ def register(body: RegisterIn, request: Request):
     log_event("register", {"email": body.email, "mode": mode}, company_id=company_id,
               user_id=user_id, ip=_client_ip(request))
     if mode == "dev-outbox":
-        return {"message": "Email delivery is not configured. Development mode:"
-                           " verification email saved to the local outbox"
+        return {"message": "Development mode: no email was sent. Your OTP was"
+                           " generated locally and saved to the server's local outbox"
                            " (storage/temporary/dev-outbox).",
                 "email_masked": mask_email(body.email), "dev_mode": True}
     return {"message": "Verification code sent to your email address.",
@@ -298,8 +298,8 @@ def resend_otp(body: ResendOtpIn, request: Request):
     log_event("otp_resent", {"email": email, "mode": mode}, company_id=company_id,
               user_id=user_id, ip=_client_ip(request))
     if mode == "dev-outbox":
-        return {"message": "Email delivery is not configured. Development mode:"
-                           " verification email saved to the local outbox"
+        return {"message": "Development mode: no email was sent. Your new OTP was"
+                           " generated locally and saved to the server's local outbox"
                            " (storage/temporary/dev-outbox).",
                 "email_masked": mask_email(email), "dev_mode": True}
     return {"message": "Verification code sent to your email address.",
