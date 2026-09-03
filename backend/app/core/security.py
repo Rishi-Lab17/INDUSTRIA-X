@@ -1,26 +1,32 @@
-"""Password hashing (bcrypt), OTP hashing (sha256), JWT session tokens."""
+"""Password hashing (bcrypt directly), OTP hashing (sha256), JWT session tokens."""
 import hashlib
 import secrets
 import uuid
 from datetime import datetime, timedelta, timezone
 
+import bcrypt as _bcrypt
 from jose import JWTError, jwt
-from passlib.context import CryptContext
 
 from .config import get_settings
 
 ROLES = ("COMPANY_ADMIN", "ENGINEER", "TECHNICIAN")
 
-_pwd = CryptContext(schemes=["bcrypt"], deprecated="auto")
+# bcrypt truncates inputs at 72 bytes; reject longer passwords loudly
+# instead of silently weakening them.
+MAX_PASSWORD_BYTES = 72
 
 
 def hash_password(password: str) -> str:
-    return _pwd.hash(password)
+    pw = password.encode("utf-8")
+    if len(pw) > MAX_PASSWORD_BYTES:
+        raise ValueError("Password must not exceed 72 bytes")
+    salt = _bcrypt.gensalt(rounds=get_settings().BCRYPT_ROUNDS)
+    return _bcrypt.hashpw(pw, salt).decode("utf-8")
 
 
 def verify_password(password: str, password_hash: str) -> bool:
     try:
-        return _pwd.verify(password, password_hash)
+        return _bcrypt.checkpw(password.encode("utf-8"), password_hash.encode("utf-8"))
     except Exception:
         return False
 

@@ -39,6 +39,11 @@ class Settings(BaseSettings):
     SMTP_FROM_EMAIL: str = ""
     SMTP_FROM_NAME: str = "INDUSTRIA-X"
 
+    # Local-dev outbox: when SMTP is unconfigured AND APP_ENV=local, the
+    # verification email is written here as a file instead of being sent.
+    # The API/UI never carry the code. Production refuses (502) instead.
+    DEV_OUTBOX_DIR: str = "./storage/temporary/dev-outbox"
+
     # --- Firebase phone auth (verification only; authZ stays in INDUSTRIA-X) ---
     FIREBASE_PROJECT_ID: str = ""
     FIREBASE_CREDENTIALS_FILE: str = ""
@@ -51,7 +56,10 @@ class Settings(BaseSettings):
 
     AI_PROVIDER: str = "kimi-k3"
     AI_ACTIVE_MODEL: str = "kimi-k3"
-    KIMI_K3_BASE_URL: str = "http://127.0.0.1:8000/v1"
+    # Placeholder for the operator's on-prem Kimi K3 server (OpenAI-compatible).
+    # Uses a port nothing else binds so health probes never hit our own backend
+    # (that self-hit caused the /v1/models 404 noise). Set the real URL in .env.
+    KIMI_K3_BASE_URL: str = "http://127.0.0.1:11436/v1"
     KIMI_K3_MODEL: str = "kimi-k3"
     KIMI_K3_TIMEOUT_S: int = 5
     OLLAMA_BASE_URL: str = "http://127.0.0.1:11434"

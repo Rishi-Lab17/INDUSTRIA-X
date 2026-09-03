@@ -21,9 +21,11 @@ export default function Register() {
         company_name: companyName.trim(), name: name.trim(),
         email: email.trim(), password,
         mobile_number: mobile.trim() || undefined,
+      }).then((r) => {
+        // The OTP is emailed (or saved to the local dev outbox). It is NEVER
+        // returned, displayed, or logged — only a dev-mode flag is passed.
+        nav("/verify", { state: { email: email.trim(), devMode: r.dev_mode } });
       });
-      // The OTP is emailed to the user. It is NEVER returned, displayed, or logged.
-      nav("/verify", { state: { email: email.trim() } });
     } catch (e) {
       setErr(e instanceof Error ? e.message : "Registration failed");
     } finally {
