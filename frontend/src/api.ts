@@ -200,6 +200,66 @@ export interface EvalReport {
   summary: { pass_rate: number; mean_mrr: number; mean_latency_ms: number; evaluated_at: string };
 }
 
+export interface AISession {
+  id: number;
+  equipment_id: number | null;
+  title: string;
+  provider: string;
+  model: string;
+  status: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface AIMessage {
+  id: number;
+  role: "USER" | "ASSISTANT" | "SYSTEM" | "TOOL";
+  content: string;
+  model: string | null;
+  created_at: string;
+}
+
+export interface AIRun {
+  id: number;
+  status: string;
+  task_type: string;
+  started_at: string | null;
+  ended_at: string | null;
+  duration_ms: number | null;
+  sources_count: number;
+  tools_used: string[];
+  error_category: string | null;
+}
+
+export interface AIModel {
+  id: string;
+  provider: string;
+  display_name: string;
+  local: boolean;
+  is_test: boolean;
+  capabilities: Record<string, { supported: boolean; verified_live: boolean }>;
+  context_limit: number | null;
+  status: string;
+  error: string | null;
+}
+
+export interface AIHealth {
+  provider: string;
+  display: string;
+  is_test: boolean;
+  local: boolean;
+  status: string;
+  latency_ms: number;
+  detail: string;
+  model: string;
+  runs_total: number;
+  runs_completed: number;
+  runs_failed: number;
+  avg_latency_ms: number | null;
+  last_error: { error_category: string; created_at: string } | null;
+  tool_invocations: number;
+}
+
 export const api = {
   register: (b: { company_name: string; name: string; email: string; password: string; mobile_number?: string }) =>
     req<{ message: string; email_masked: string; dev_mode: boolean }>(
@@ -280,4 +340,30 @@ export const api = {
     req<SearchResult>("/api/knowledge/search", {
       method: "POST", body: JSON.stringify(b) }),
   kbEval: () => req<EvalReport>("/api/knowledge/eval"),
+  aiModels: () => req<{ models: AIModel[] }>("/api/ai/models"),
+  aiHealth: () => req<AIHealth>("/api/ai/health"),
+  aiTools: () => req<{ tools: { name: string; description: string }[] }>("/api/ai/tools"),
+  aiSessions: () => req<{ sessions: AISession[] }>("/api/ai/sessions"),
+  aiCreateSession: (b: { equipment_id?: number; title?: string; task_type?: string }) =>
+    req<AISession>("/api/ai/sessions", { method: "POST", body: JSON.stringify(b) }),
+  aiGetSession: (id: number) =>
+    req<{ session: AISession; messages: AIMessage[]; runs: AIRun[] }>(`/api/ai/sessions/${id}`),
+  aiDeleteSession: (id: number) =>
+    req<{ message: string }>(`/api/ai/sessions/${id}`, { method: "DELETE" }),
+  aiSendMessage: (id: number, b: { content: string }) =>
+    req<{ run_id: number; status: string; answer: string;
+          citations: Citation[]; plan: string[]; duration_ms: number | null;
+          sources_count: number; tools_used: string[]; streamed: boolean;
+          error?: string; error_category?: string | null }>(
+      `/api/ai/sessions/${id}/messages`, { method: "POST", body: JSON.stringify(b) }),
+  aiGetRun: (id: number) =>
+    req<{ run: AIRun & { provider: string; model: string; prompt_template: string;
+                         prompt_version: string; tokens_in: number | null;
+                         tokens_out: number | null };
+          tool_runs: { tool_name: string; status: string; error: string | null;
+                       duration_ms: number | null; created_at: string }[] }>(
+      `/api/ai/runs/${id}`),
+  aiCancelRun: (id: number) =>
+    req<{ run_id: number; status: string; cancelled: boolean }>(
+      `/api/ai/runs/${id}/cancel`, { method: "POST" }),
 };

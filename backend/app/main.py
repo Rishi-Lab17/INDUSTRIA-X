@@ -6,13 +6,18 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from .core.config import get_settings
 from .db import init_db
-from .routers import auth, company, documents, equipment, knowledge, system
+from .routers import ai, auth, company, documents, equipment, knowledge, system
 
 
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
     init_db()
     get_settings()  # resolve settings early so misconfig fails fast
+    try:
+        from .ai.registry import validate_ai_config
+        validate_ai_config()  # warnings only; Kimi offline never blocks startup
+    except Exception:
+        pass
     try:
         from .rag.store import init_store
         init_store()
@@ -32,6 +37,7 @@ app.add_middleware(
 )
 
 app.include_router(auth.router)
+app.include_router(ai.router)
 app.include_router(company.router)
 app.include_router(documents.router)
 app.include_router(knowledge.router)

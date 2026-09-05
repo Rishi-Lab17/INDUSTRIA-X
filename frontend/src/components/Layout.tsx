@@ -8,6 +8,7 @@ const LINKS = [
   { to: "/equipment", label: "Equipment" },
   { to: "/knowledge", label: "Knowledge Base" },
   { to: "/search", label: "Knowledge Search" },
+  { to: "/workbench", label: "AI Workbench" },
   { to: "/investigations", label: "Investigations" },
   { to: "/evidence", label: "Evidence Center" },
   { to: "/audit", label: "Audit Trail" },

@@ -116,6 +116,15 @@ def health():
     services["sensor_engine"] = {"status": "OFFLINE", "detail": "Stage 6 not implemented yet"}
     services["vision_engine"] = {"status": "OFFLINE", "detail": "Stage 6 not implemented yet"}
 
+    # AI workbench: registry health (cached, honest). Never ONLINE unless live.
+    try:
+        from ..ai.registry import cached_health
+        ah = cached_health()
+        services["ai"] = {"status": ah.get("status", "OFFLINE"),
+                          "detail": ah.get("detail", "AI status unknown")}
+    except Exception as e:
+        services["ai"] = {"status": "ERROR", "detail": f"AI probe failed: {type(e).__name__}"}
+
     overall = "ONLINE"
     if any(v["status"] == "ERROR" for v in services.values()):
         overall = "ERROR"
@@ -148,6 +157,7 @@ def sovereignty():
         "ai_provider": s.AI_PROVIDER,
         "ai_active_model": s.KIMI_K3_MODEL if kimi_reachable else "none",
         "kimi_reachable": kimi_reachable,
+        "ai_workbench": ("online" if kimi_reachable else "offline-no-model"),
         "note": ("Kimi K3 is configured as the primary engine. "
                  + ("A Kimi K3 server is reachable."
                     if kimi_reachable else

@@ -1,6 +1,7 @@
-# Testing (Stages 1–4)
+# Testing (Stages 1–5)
 
-Run from the root: `python -m pytest tests/ -v` (55 tests, all passing).
+Run from the root: `python -m pytest tests/ -v` (82+ tests, all passing;
+1 skipped: live Kimi contract, no runtime present).
 
 `tests/test_stage1_auth.py` (5 tests): full register→verify→login→me→logout→
 revoked flow (OTP read from the fake provider's server-side record, never the
@@ -51,6 +52,17 @@ cross-company 404s, RBAC matrix, honest INDEX_FAILED + retry, query
 normalization, dedup + rank tracking, KB health + search audit, live
 evaluation (MRR/precision/recall/latency + negative control), offline
 sockets-blocked search + index, perf bounds with printed timings.
+
+`tests/test_stage5_ai.py` (~35): provider selection, env config, Kimi
+offline honesty (no fakes), live contract (SKIPs without runtime), transient
+retry vs no-retry-on-422, registry honesty, routing + unavailable capability,
+session CRUD + owner/admin visibility + foreign-equipment rejection,
+grounded answers with citations + run/tool records, insufficient-evidence,
+equipment scoping, cross-company sessions/runs/tools, technician scope,
+SSE frame format, orchestrator cancel, endpoint cancel, timeout, loop-limit
+termination, prompt/rate limits, tool injection/role/oversize, audit +
+metrics, secret/CoT silence (caplog + DB), sovereignty labels, Kimi 503 with
+evidence preserved, full RAG→answer→citation→run→audit e2e.
 
 Failure matrix covers: invalid login, unverified login, wrong/expired/reused
 OTP, resend cooldown + hourly cap, verify brute-force, Resend outage/reject,

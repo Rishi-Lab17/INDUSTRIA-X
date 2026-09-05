@@ -14,7 +14,10 @@
 - Stage 2 — COMPLETE (company workspace, equipment digital passport + QR)
 - Stage 3 — COMPLETE (knowledge base + local document processing)
 - Stage 4 — COMPLETE (local embeddings + vector DB + hybrid RAG + provenance)
-- Stage 5 — NEXT (Kimi K3 + agent orchestration)
+- Stage 5 — COMPLETE (Kimi K3 provider abstraction + AI Workbench + agents;
+  live Kimi runtime pending — workbench reports OFFLINE honestly until an
+  on-prem server is connected)
+- Stage 6 — NEXT (multimodal sensor/vision intelligence)
 
 ## Team Git workflow
 

@@ -133,3 +133,68 @@ CREATE INDEX IF NOT EXISTS idx_documents_company ON documents(company_id);
 CREATE INDEX IF NOT EXISTS idx_documents_equipment ON documents(equipment_id);
 CREATE INDEX IF NOT EXISTS idx_documents_status ON documents(processing_status);
 CREATE INDEX IF NOT EXISTS idx_documents_hash ON documents(company_id, sha256_hash);
+
+-- Stage 5: AI workbench. All rows company-scoped. No chain-of-thought stored.
+CREATE TABLE IF NOT EXISTS ai_sessions (
+  id          INTEGER PRIMARY KEY AUTOINCREMENT,
+  company_id  INTEGER NOT NULL REFERENCES companies(id),
+  user_id     INTEGER NOT NULL REFERENCES users(id),
+  equipment_id INTEGER REFERENCES equipment(id),
+  title       TEXT NOT NULL,
+  provider    TEXT NOT NULL,
+  model       TEXT NOT NULL,
+  status      TEXT NOT NULL DEFAULT 'ACTIVE',
+  created_at  TEXT NOT NULL DEFAULT (datetime('now')),
+  updated_at  TEXT NOT NULL DEFAULT (datetime('now'))
+);
+CREATE INDEX IF NOT EXISTS idx_ai_sessions_company ON ai_sessions(company_id);
+CREATE INDEX IF NOT EXISTS idx_ai_sessions_user ON ai_sessions(user_id);
+
+CREATE TABLE IF NOT EXISTS ai_messages (
+  id          INTEGER PRIMARY KEY AUTOINCREMENT,
+  session_id  INTEGER NOT NULL REFERENCES ai_sessions(id),
+  role        TEXT NOT NULL CHECK (role IN ('USER','ASSISTANT','SYSTEM','TOOL')),
+  content     TEXT NOT NULL,
+  model       TEXT,
+  tool_name   TEXT,
+  run_id      INTEGER,
+  created_at  TEXT NOT NULL DEFAULT (datetime('now'))
+);
+CREATE INDEX IF NOT EXISTS idx_ai_messages_session ON ai_messages(session_id);
+
+CREATE TABLE IF NOT EXISTS ai_runs (
+  id              INTEGER PRIMARY KEY AUTOINCREMENT,
+  company_id      INTEGER NOT NULL REFERENCES companies(id),
+  user_id         INTEGER NOT NULL REFERENCES users(id),
+  session_id      INTEGER NOT NULL REFERENCES ai_sessions(id),
+  equipment_id    INTEGER REFERENCES equipment(id),
+  provider        TEXT NOT NULL,
+  model           TEXT NOT NULL,
+  task_type       TEXT NOT NULL,
+  prompt_template TEXT NOT NULL DEFAULT 'industrial_assistant',
+  prompt_version  TEXT NOT NULL DEFAULT 'stage5-v1',
+  status          TEXT NOT NULL DEFAULT 'QUEUED',
+  error_category  TEXT,
+  started_at      TEXT,
+  ended_at        TEXT,
+  duration_ms     INTEGER,
+  tokens_in       INTEGER,
+  tokens_out      INTEGER,
+  sources_count   INTEGER NOT NULL DEFAULT 0,
+  tools_used      TEXT NOT NULL DEFAULT '[]',
+  created_at      TEXT NOT NULL DEFAULT (datetime('now'))
+);
+CREATE INDEX IF NOT EXISTS idx_ai_runs_session ON ai_runs(session_id);
+CREATE INDEX IF NOT EXISTS idx_ai_runs_company ON ai_runs(company_id);
+
+CREATE TABLE IF NOT EXISTS ai_tool_runs (
+  id          INTEGER PRIMARY KEY AUTOINCREMENT,
+  run_id      INTEGER NOT NULL REFERENCES ai_runs(id),
+  tool_name   TEXT NOT NULL,
+  input_json  TEXT NOT NULL DEFAULT '{}',
+  status      TEXT NOT NULL,
+  error       TEXT,
+  duration_ms INTEGER,
+  created_at  TEXT NOT NULL DEFAULT (datetime('now'))
+);
+CREATE INDEX IF NOT EXISTS idx_ai_tool_runs_run ON ai_tool_runs(run_id);

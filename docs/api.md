@@ -76,3 +76,15 @@ Knowledge retrieval — Stage 4 (`routers/knowledge.py`, `rag/`):
   why-signals, packed context) or INSUFFICIENT_EVIDENCE; equipment/document
   filters ownership-checked; historical mode explicit.
 - `GET /api/knowledge/eval` (ADMIN, ENGINEER) → live retrieval evaluation.
+
+AI workbench — Stage 5 (`routers/ai.py`, `ai/`, `agents/`):
+
+- `GET /api/ai/models` → registry (capabilities + verified flags, TEST labelled).
+- `GET /api/ai/health` → provider status + run metrics (honest OFFLINE).
+- `GET /api/ai/tools` → role-filtered tool catalog.
+- `POST /api/ai/sessions` · `GET /api/ai/sessions` · `GET /{id}` ·
+  `DELETE /{id}` (owner + admin visibility, company-scoped).
+- `POST /api/ai/sessions/{id}/messages` → grounded run (503 unavailable,
+  504 timeout, 429 limited, 413 oversize).
+- `POST /.../messages/stream` → SSE (start/token/error/done frames).
+- `GET /api/ai/runs/{id}` (run + tool runs) · `POST /{id}/cancel`.

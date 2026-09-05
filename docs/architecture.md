@@ -70,8 +70,11 @@ Rules enforced in code:
 | ---------- | --------------------------------------------- |
 | `backend/` | FastAPI app, auth (S1), companies/equip (S2)  |
 | `rag/`     | chunking/embed/retrieve/rank/provenance (S4)  |
-| `ai/`      | provider abstraction + Kimi client (S5)       |
-| `agents/`  | planner/rag/sensor/vision/hyp/verify (S5–S8)  |
+| `backend/app/ai/` | providers (Kimi OpenAI-compat + TEST), model
+  registry + router + cached health, versioned prompts, context builder (S5) |
+| `backend/app/agents/` | allowlisted tools, PlannerAgent, RAGAgent,
+  orchestrator state machine + run tracking (S5; vision/sensor/hypothesis
+  agents land in later stages) |
 | `database/`| schema + migrations + seeds (S1–S2)           |
 | `storage/` | runtime uploads (git-ignored)                 |
 | `data/demo`| fictional PUMP P-204 demo set (S6/hero demo)  |

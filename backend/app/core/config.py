@@ -70,7 +70,22 @@ class Settings(BaseSettings):
     # (that self-hit caused the /v1/models 404 noise). Set the real URL in .env.
     KIMI_K3_BASE_URL: str = "http://127.0.0.1:11436/v1"
     KIMI_K3_MODEL: str = "kimi-k3"
+    KIMI_K3_API_KEY: str = "local"
     KIMI_K3_TIMEOUT_S: int = 5
+    # --- Stage 5 AI workbench (local-first; Kimi K3 primary, no fallback) ---
+    KIMI_ENABLED: bool = True
+    KIMI_CONNECT_TIMEOUT_S: int = 5
+    KIMI_MAX_RETRIES: int = 2
+    KIMI_MAX_TOKENS: int = 1024
+    KIMI_TEMPERATURE: float = 0.2
+    AI_MAX_MESSAGE_CHARS: int = 4000
+    AI_MAX_CONTEXT_CHARS: int = 12000
+    AI_MEMORY_MESSAGES: int = 20
+    AI_MAX_TOOL_CALLS_PER_RUN: int = 5
+    AI_RUNS_PER_USER: int = 30
+    AI_RUNS_PER_USER_WINDOW_S: int = 300
+    AI_RUNS_PER_COMPANY: int = 200
+    AI_RUNS_PER_COMPANY_WINDOW_S: int = 300
     OLLAMA_BASE_URL: str = "http://127.0.0.1:11434"
     DEV_MODEL: str = "hf.co/nvidia/NVIDIA-Nemotron-3-Nano-4B-GGUF:Q4_K_M"
 
