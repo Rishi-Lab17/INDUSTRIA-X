@@ -77,8 +77,7 @@ export interface KBPreview {
   sections: { type: string; text: string; page?: number; source?: string }[];
 }
 
-async function reqBlob(path: string): Promise<Blob> {
-  const t = getToken();
+export async function authedBlob(path: string): Promise<Blob> {  const t = getToken();
   const res = await fetch(`${BASE}${path}`, {
     headers: t ? { Authorization: `Bearer ${t}` } : {},
   });
@@ -260,6 +259,54 @@ export interface AIHealth {
   tool_invocations: number;
 }
 
+export interface SensorDataset {
+  id: number;
+  equipment_id: number;
+  equipment_code: string | null;
+  name: string;
+  source_filename: string;
+  sha256_hash: string;
+  channels: { name: string; unit: string | null }[];
+  row_count: number;
+  time_start: number;
+  time_end: number;
+  sample_interval_s: number | null;
+  quality_status: string;
+  quality_score: number | null;
+  created_at: string;
+}
+
+export interface VisionAsset {
+  id: number;
+  equipment_id: number;
+  equipment_code: string | null;
+  filename: string;
+  mime_type: string;
+  file_size: number;
+  width: number;
+  height: number;
+  sha256_hash: string;
+  quality_status: string;
+  quality_detail: Record<string, unknown>;
+  ocr_status: string;
+  ocr_text: string;
+  created_at: string;
+}
+
+export interface VisionAnnotation {
+  id: number;
+  asset_id: number;
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+  label: string;
+  note: string;
+  created_by: number | null;
+  created_at: string;
+  updated_at: string;
+}
+
 export const api = {
   register: (b: { company_name: string; name: string; email: string; password: string; mobile_number?: string }) =>
     req<{ message: string; email_masked: string; dev_mode: boolean }>(
@@ -296,7 +343,7 @@ export const api = {
     req<Equipment>(`/api/equipment/${id}`, { method: "PATCH", body: JSON.stringify(b) }),
   equipmentDelete: (id: number) =>
     req<{ message: string }>(`/api/equipment/${id}`, { method: "DELETE" }),
-  equipmentQr: (id: number) => reqBlob(`/api/equipment/${id}/qr`),
+  equipmentQr: (id: number) => authedBlob(`/api/equipment/${id}/qr`),
   equipmentHistory: (id: number) =>
     req<{ history: { id: number; user_id: number; action: string; detail: string; created_at: string }[] }>(
       `/api/equipment/${id}/history`),
@@ -310,7 +357,7 @@ export const api = {
   },
   kbGet: (id: number) => req<KBDocument>(`/api/documents/${id}`),
   kbPreview: (id: number) => req<KBPreview>(`/api/documents/${id}/preview`),
-  kbDownload: (id: number) => reqBlob(`/api/documents/${id}/download`),
+  kbDownload: (id: number) => authedBlob(`/api/documents/${id}/download`),
   kbArchive: (id: number) =>
     req<{ message: string }>(`/api/documents/${id}/archive`, { method: "POST" }),
   kbRetry: (id: number) =>
@@ -366,4 +413,101 @@ export const api = {
   aiCancelRun: (id: number) =>
     req<{ run_id: number; status: string; cancelled: boolean }>(
       `/api/ai/runs/${id}/cancel`, { method: "POST" }),
+  sensorUpload: (file: File, equipmentId: number, name?: string) => {
+    const fd = new FormData();
+    fd.append("file", file);
+    fd.append("equipment_id", String(equipmentId));
+    if (name) fd.append("name", name);
+    const t = getToken();
+    const headers: Record<string, string> = t ? { Authorization: `Bearer ${t}` } : {};
+    return fetch(`${BASE}/api/sensors/upload`, {
+      method: "POST", headers, body: fd,
+    }).then(async (res) => {
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error((data as { detail?: string }).detail ?? `Upload failed (${res.status})`);
+      }
+      return data as SensorDataset & { quality: Record<string, unknown> };
+    });
+  },
+  sensorList: (equipmentId?: number) =>
+    req<{ datasets: SensorDataset[] }>(
+      `/api/sensors${equipmentId ? `?equipment_id=${equipmentId}` : ""}`),
+  sensorGet: (id: number) => req<SensorDataset>(`/api/sensors/${id}`),
+  sensorQuality: (id: number) =>
+    req<Record<string, unknown>>(`/api/sensors/${id}/quality`),
+  sensorAnalyze: (id: number, b: Record<string, unknown>) =>
+    req<Record<string, unknown>>(`/api/sensors/${id}/analyze`, {
+      method: "POST", body: JSON.stringify(b) }),
+  sensorTrend: (id: number, b: Record<string, unknown>) =>
+    req<Record<string, unknown>>(`/api/sensors/${id}/trend`, {
+      method: "POST", body: JSON.stringify(b) }),
+  sensorAnomalies: (id: number, b: Record<string, unknown>) =>
+    req<Record<string, unknown>>(`/api/sensors/${id}/anomalies`, {
+      method: "POST", body: JSON.stringify(b) }),
+  sensorFrequency: (id: number, b: Record<string, unknown>) =>
+    req<Record<string, unknown>>(`/api/sensors/${id}/frequency`, {
+      method: "POST", body: JSON.stringify(b) }),
+  sensorCorrelate: (b: Record<string, unknown>) =>
+    req<Record<string, unknown>>("/api/sensors/correlation", {
+      method: "POST", body: JSON.stringify(b) }),
+  sensorSeries: (id: number, channel: string, start?: number, end?: number) =>
+    req<{ dataset_id: number; channel: string; times: number[]; values: number[];
+          downsampled: boolean; stride?: number; original_n?: number }>(
+      `/api/sensors/${id}/series?channel=${encodeURIComponent(channel)}` +
+      `${start !== undefined ? `&start=${start}` : ""}${end !== undefined ? `&end=${end}` : ""}`),
+  sensorExportUrl: (id: number) => `${BASE}/api/sensors/${id}/export`,
+  visionUpload: (file: File, equipmentId: number) => {
+    const fd = new FormData();
+    fd.append("file", file);
+    fd.append("equipment_id", String(equipmentId));
+    const t = getToken();
+    const headers: Record<string, string> = t ? { Authorization: `Bearer ${t}` } : {};
+    return fetch(`${BASE}/api/vision/images`, {
+      method: "POST", headers, body: fd,
+    }).then(async (res) => {
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error((data as { detail?: string }).detail ?? `Upload failed (${res.status})`);
+      }
+      return data as VisionAsset;
+    });
+  },
+  visionList: (equipmentId?: number) =>
+    req<{ images: VisionAsset[] }>(
+      `/api/vision/images${equipmentId ? `?equipment_id=${equipmentId}` : ""}`),
+  visionGet: (id: number) => req<VisionAsset>(`/api/vision/images/${id}`),
+  visionFileUrl: (id: number) => `${BASE}/api/vision/images/${id}/file`,
+  visionQuality: (id: number) =>
+    req<VisionAsset>(`/api/vision/images/${id}/quality`, { method: "POST" }),
+  visionOcr: (id: number) =>
+    req<{ asset_id: number; ocr_status: string; ocr_text: string; note: string }>(
+      `/api/vision/images/${id}/ocr`, { method: "POST" }),
+  visionAnalyze: (id: number) =>
+    req<Record<string, unknown>>(`/api/vision/images/${id}/analyze`, { method: "POST" }),
+  visionAnnotations: (id: number) =>
+    req<{ annotations: VisionAnnotation[] }>(`/api/vision/images/${id}/annotations`),
+  visionAnnotate: (id: number, b: Record<string, unknown>) =>
+    req<VisionAnnotation>(`/api/vision/images/${id}/annotations`, {
+      method: "POST", body: JSON.stringify(b) }),
+  visionAnnotUpdate: (id: number, annId: number, b: Record<string, unknown>) =>
+    req<VisionAnnotation>(`/api/vision/images/${id}/annotations/${annId}`, {
+      method: "PATCH", body: JSON.stringify(b) }),
+  visionAnnotDelete: (id: number, annId: number) =>
+    req<{ message: string }>(`/api/vision/images/${id}/annotations/${annId}`, {
+      method: "DELETE" }),
+  mmRun: (b: Record<string, unknown>) =>
+    req<Record<string, unknown>>("/api/investigations/multimodal", {
+      method: "POST", body: JSON.stringify(b) }),
+  mmList: (equipmentId?: number) =>
+    req<{ investigations: { id: number; equipment_id: number; question: string;
+                            created_at: string; updated_at: string }[] }>(
+      `/api/investigations${equipmentId ? `?equipment_id=${equipmentId}` : ""}`),
+  mmGet: (id: number) =>
+    req<{ id: number; equipment_id: number; question: string;
+          config: Record<string, unknown>; results: Record<string, unknown>;
+          created_at: string; updated_at: string }>(`/api/investigations/${id}`),
+  mmSnapshot: (b: Record<string, unknown>) =>
+    req<{ investigation_id: number; message: string }>("/api/investigations/snapshot", {
+      method: "POST", body: JSON.stringify(b) }),
 };

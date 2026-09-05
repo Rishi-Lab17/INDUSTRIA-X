@@ -7,6 +7,9 @@ from fastapi.middleware.cors import CORSMiddleware
 from .core.config import get_settings
 from .db import init_db
 from .routers import ai, auth, company, documents, equipment, knowledge, system
+from .routers import investigations as investigations_router
+from .routers import sensors as sensors_router
+from .routers import vision as vision_router
 
 
 @asynccontextmanager
@@ -41,6 +44,9 @@ app.include_router(ai.router)
 app.include_router(company.router)
 app.include_router(documents.router)
 app.include_router(knowledge.router)
+app.include_router(sensors_router.router)
+app.include_router(vision_router.router)
+app.include_router(investigations_router.router)
 app.include_router(equipment.router)
 app.include_router(system.router)
 

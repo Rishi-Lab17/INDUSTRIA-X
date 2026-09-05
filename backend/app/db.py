@@ -39,6 +39,7 @@ def _migrate(con) -> None:
     ensure("companies", "settings", "TEXT NOT NULL DEFAULT '{}'")
     ensure("audit_events", "entity_type", "TEXT")
     ensure("audit_events", "entity_id", "INTEGER")
+    ensure("sensor_datasets", "quality_detail", "TEXT NOT NULL DEFAULT '{}'")
     for col, ddl in (
             ("processing_note", "TEXT"),
             ("index_status", "TEXT NOT NULL DEFAULT 'NOT_INDEXED'"),

@@ -142,6 +142,63 @@ def tool_get_current_ai_status(sess: dict, args: dict) -> dict:
             "is_test": m.get("is_test")}
 
 
+def tool_analyze_sensor_data(sess: dict, args: dict) -> dict:
+    from .analysis_agents import DataAnalysisAgent, load_dataset_rows
+    dataset_id = _as_int(args.get("dataset_id"), "dataset_id")
+    channel = _as_text(args.get("channel", ""), "channel", max_len=128)
+    method = str(args.get("method", "rolling_zscore"))
+    if method not in ("zscore", "rolling_zscore", "iqr", "threshold"):
+        raise ToolDenied("Invalid method")
+    window = args.get("window", 60)
+    threshold = args.get("threshold", 3.0)
+    try:
+        window = int(window)
+        threshold = float(threshold)
+    except (TypeError, ValueError):
+        raise ToolDenied("Invalid window/threshold")
+    if not 2 <= window <= 100000 or not 0.1 <= threshold <= 20:
+        raise ToolDenied("window/threshold out of range")
+    con = app_connect()
+    try:
+        ds = con.execute("SELECT * FROM sensor_datasets WHERE id = ? AND company_id = ?",
+                         (dataset_id, _company_of(sess))).fetchone()
+    finally:
+        con.close()
+    if ds is None:
+        raise ToolDenied("Sensor dataset not found")
+    _, rows = load_dataset_rows(dataset_id)
+    names = [c["name"] for c in __import__("json").loads(ds["channels"])]
+    if channel not in names:
+        raise ToolDenied("Unknown channel")
+    res = DataAnalysisAgent().analyze(rows=rows, channel=channel, method=method,
+                                      window=window, threshold=threshold)
+    return {"dataset_id": dataset_id, "channel": channel,
+            "statistics": res.get("statistics", {}),
+            "trend": res.get("trend", {}).get("direction"),
+            "anomaly_count": res.get("anomalies", {}).get("count", 0)}
+
+
+def tool_analyze_vision_image(sess: dict, args: dict) -> dict:
+    asset_id = _as_int(args.get("asset_id"), "asset_id")
+    con = app_connect()
+    try:
+        row = con.execute("SELECT * FROM vision_assets WHERE id = ? AND company_id = ?",
+                          (asset_id, _company_of(sess))).fetchone()
+        anns = [dict(a) for a in con.execute(
+            "SELECT x, y, w, h, label, note FROM vision_annotations"
+            " WHERE asset_id = ? AND company_id = ? ORDER BY id",
+            (asset_id, _company_of(sess))).fetchall()] if row else []
+    finally:
+        con.close()
+    if row is None:
+        raise ToolDenied("Image not found")
+    return {"asset_id": asset_id, "filename": row["filename"],
+            "quality": row["quality_status"], "ocr_status": row["ocr_status"],
+            "ocr_text": (row["ocr_text"] or "")[:2000],
+            "regions": [{"label": a["label"], "note": a.get("note", "")} for a in anns],
+            "limitation": "Human-marked regions only; no automated diagnosis."}
+
+
 TOOLS = {
     "search_knowledge_base": {
         "fn": tool_search_knowledge_base,
@@ -177,6 +234,16 @@ TOOLS = {
         "fn": tool_get_current_ai_status,
         "description": "Current AI provider/model status snapshot.",
         "roles": ("COMPANY_ADMIN", "ENGINEER", "TECHNICIAN"),
+    },
+    "analyze_sensor_data": {
+        "fn": tool_analyze_sensor_data,
+        "description": "Statistical sensor analysis (owned dataset, bounded).",
+        "roles": ("COMPANY_ADMIN", "ENGINEER"),
+    },
+    "analyze_vision_image": {
+        "fn": tool_analyze_vision_image,
+        "description": "Vision metadata/OCR/regions summary (owned image).",
+        "roles": ("COMPANY_ADMIN", "ENGINEER"),
     },
 }
 

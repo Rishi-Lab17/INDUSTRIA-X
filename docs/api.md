@@ -77,6 +77,32 @@ Knowledge retrieval — Stage 4 (`routers/knowledge.py`, `rag/`):
   filters ownership-checked; historical mode explicit.
 - `GET /api/knowledge/eval` (ADMIN, ENGINEER) → live retrieval evaluation.
 
+Sensor intelligence — Stage 6 (`routers/sensors.py`, `multimodal/`):
+
+- `POST /api/sensors/upload` (multipart CSV + equipment_id; ADMIN, ENGINEER).
+- `GET /api/sensors[?equipment_id=]` · `GET /{id}` · `GET /{id}/quality` ·
+  `GET /{id}/series?channel=&start=&end=` (downsampled) · `GET /{id}/export` (CSV).
+- `POST /{id}/analyze` (stats + method anomalies + optional compare/event window).
+- `POST /{id}/trend` · `POST /{id}/anomalies` · `POST /{id}/frequency` (FFT or honest unavailable).
+- `POST /api/sensors/correlation` (Pearson, "observed, not causation").
+- Analyze-family endpoints: ADMIN + ENGINEER; read/export: all roles.
+
+Vision intelligence — Stage 6 (`routers/vision.py`):
+
+- `POST /api/vision/images` (JPG/JPEG/PNG/WEBP + equipment_id; all roles).
+- `GET /api/vision/images[?equipment_id=]` · `GET /{id}` · `GET /{id}/file` (streamed).
+- `POST /{id}/quality` · `POST /{id}/ocr` · `POST /{id}/analyze` (ADMIN, ENGINEER;
+  POOR imagery refused with reason; OCR honest UNAVAILABLE without engine).
+- `GET/POST /{id}/annotations` (all roles create) ·
+  `PATCH/DELETE .../annotations/{annId}` (author or ADMIN).
+
+Multimodal investigations — Stage 6 (`routers/investigations.py`):
+
+- `POST /api/investigations/multimodal` (ADMIN, ENGINEER) → typed evidence,
+  O/I/L observations, timeline, warnings, optional AI interpretation (model-gated).
+- `GET /api/investigations[?equipment_id=]` · `GET /{id}` (all roles).
+- `POST /api/investigations/snapshot` (ADMIN, ENGINEER) → reproducible record.
+
 AI workbench — Stage 5 (`routers/ai.py`, `ai/`, `agents/`):
 
 - `GET /api/ai/models` → registry (capabilities + verified flags, TEST labelled).

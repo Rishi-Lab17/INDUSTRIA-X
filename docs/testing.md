@@ -1,7 +1,6 @@
-# Testing (Stages 1–5)
+# Testing (Stages 1–6)
 
-Run from the root: `python -m pytest tests/ -v` (82+ tests, all passing;
-1 skipped: live Kimi contract, no runtime present).
+Run from the root: `python -m pytest tests/ -v` (105+ tests, all passing).
 
 `tests/test_stage1_auth.py` (5 tests): full register→verify→login→me→logout→
 revoked flow (OTP read from the fake provider's server-side record, never the
@@ -52,6 +51,14 @@ cross-company 404s, RBAC matrix, honest INDEX_FAILED + retry, query
 normalization, dedup + rank tracking, KB health + search audit, live
 evaluation (MRR/precision/recall/latency + negative control), offline
 sockets-blocked search + index, perf bounds with printed timings.
+
+`tests/test_stage6_multimodal.py` (23 tests): CSV shapes/units, malformed/
+missing/duplicate/irregular/oversize handling, exact statistics, trend
+directions, all anomaly methods + safety language, threshold-without-config,
+FFT valid/irregular, correlation + event windows, chart downsampling + export,
+image validation/metadata/quality, honest OCR, POOR refusal, annotation CRUD +
+authz + labels, multimodal evidence/tags/timeline/snapshot, scoping errors,
+cross-company 404s, RBAC matrix, audit + provenance rows, agent tool scoping.
 
 `tests/test_stage5_ai.py` (~35): provider selection, env config, Kimi
 offline honesty (no fakes), live contract (SKIPs without runtime), transient

@@ -73,6 +73,7 @@ export default function EquipmentDetail() {
         </div>
         <div style={{ display: "flex", gap: 8 }}>
           {canWrite && <Link to={`/equipment/${eid}/edit`}><button className="btn btn-ghost">Edit</button></Link>}
+          <Link to={`/multimodal?equipment=${eid}`}><button className="btn btn-ghost">Investigate</button></Link>
           {canDelete && <button className="btn btn-ghost" onClick={deactivate}>Deactivate</button>}
         </div>
       </div>

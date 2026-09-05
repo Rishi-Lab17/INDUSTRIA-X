@@ -17,7 +17,8 @@
 - Stage 5 — COMPLETE (Kimi K3 provider abstraction + AI Workbench + agents;
   live Kimi runtime pending — workbench reports OFFLINE honestly until an
   on-prem server is connected)
-- Stage 6 — NEXT (multimodal sensor/vision intelligence)
+- Stage 6 — COMPLETE (sensor intelligence + vision intelligence + multimodal investigation; deterministic local analysis, no fake AI)
+- Stage 7 — NEXT (multiple hypotheses + evidence + Next-Best-Evidence)
 
 ## Team Git workflow
 

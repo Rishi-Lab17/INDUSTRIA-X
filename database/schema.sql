@@ -134,6 +134,105 @@ CREATE INDEX IF NOT EXISTS idx_documents_equipment ON documents(equipment_id);
 CREATE INDEX IF NOT EXISTS idx_documents_status ON documents(processing_status);
 CREATE INDEX IF NOT EXISTS idx_documents_hash ON documents(company_id, sha256_hash);
 
+-- Stage 6: multimodal. Raw sensor bytes live under storage/sensor_data/;
+-- readings are normalized long-format rows. Images under storage/images/.
+CREATE TABLE IF NOT EXISTS sensor_datasets (
+  id              INTEGER PRIMARY KEY AUTOINCREMENT,
+  company_id      INTEGER NOT NULL REFERENCES companies(id),
+  equipment_id    INTEGER NOT NULL REFERENCES equipment(id),
+  uploaded_by     INTEGER REFERENCES users(id),
+  name            TEXT NOT NULL,
+  source_filename TEXT NOT NULL,
+  storage_key     TEXT NOT NULL,
+  sha256_hash     TEXT NOT NULL,
+  channels        TEXT NOT NULL DEFAULT '[]',
+  row_count       INTEGER NOT NULL DEFAULT 0,
+  time_start      REAL,
+  time_end        REAL,
+  sample_interval_s REAL,
+  quality_status  TEXT NOT NULL DEFAULT 'INVALID',
+  quality_score   REAL,
+  quality_detail  TEXT NOT NULL DEFAULT '{}',
+  created_at      TEXT NOT NULL DEFAULT (datetime('now'))
+);
+CREATE INDEX IF NOT EXISTS idx_sensor_datasets_company ON sensor_datasets(company_id);
+CREATE INDEX IF NOT EXISTS idx_sensor_datasets_equipment ON sensor_datasets(equipment_id);
+
+CREATE TABLE IF NOT EXISTS sensor_readings (
+  dataset_id INTEGER NOT NULL REFERENCES sensor_datasets(id),
+  ts         REAL NOT NULL,
+  channel    TEXT NOT NULL,
+  value      REAL NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_sensor_readings_lookup
+  ON sensor_readings(dataset_id, channel, ts);
+
+CREATE TABLE IF NOT EXISTS analysis_runs (
+  id            INTEGER PRIMARY KEY AUTOINCREMENT,
+  company_id    INTEGER NOT NULL REFERENCES companies(id),
+  equipment_id  INTEGER REFERENCES equipment(id),
+  kind          TEXT NOT NULL CHECK (kind IN ('sensor','vision','multimodal')),
+  input_ref     TEXT NOT NULL DEFAULT '{}',
+  method        TEXT NOT NULL,
+  params        TEXT NOT NULL DEFAULT '{}',
+  result_summary TEXT NOT NULL DEFAULT '{}',
+  warnings      TEXT NOT NULL DEFAULT '[]',
+  created_by    INTEGER REFERENCES users(id),
+  created_at    TEXT NOT NULL DEFAULT (datetime('now'))
+);
+CREATE INDEX IF NOT EXISTS idx_analysis_runs_company ON analysis_runs(company_id);
+
+CREATE TABLE IF NOT EXISTS vision_assets (
+  id            INTEGER PRIMARY KEY AUTOINCREMENT,
+  company_id    INTEGER NOT NULL REFERENCES companies(id),
+  equipment_id  INTEGER NOT NULL REFERENCES equipment(id),
+  uploaded_by   INTEGER REFERENCES users(id),
+  filename      TEXT NOT NULL,
+  storage_key   TEXT NOT NULL,
+  mime_type     TEXT NOT NULL,
+  file_size     INTEGER NOT NULL,
+  width         INTEGER NOT NULL,
+  height        INTEGER NOT NULL,
+  sha256_hash   TEXT NOT NULL,
+  quality_status TEXT NOT NULL DEFAULT 'POOR',
+  quality_detail TEXT NOT NULL DEFAULT '{}',
+  ocr_status    TEXT NOT NULL DEFAULT 'NOT_ATTEMPTED',
+  ocr_text      TEXT NOT NULL DEFAULT '',
+  created_at    TEXT NOT NULL DEFAULT (datetime('now'))
+);
+CREATE INDEX IF NOT EXISTS idx_vision_assets_company ON vision_assets(company_id);
+CREATE INDEX IF NOT EXISTS idx_vision_assets_equipment ON vision_assets(equipment_id);
+
+CREATE TABLE IF NOT EXISTS vision_annotations (
+  id          INTEGER PRIMARY KEY AUTOINCREMENT,
+  asset_id    INTEGER NOT NULL REFERENCES vision_assets(id),
+  company_id  INTEGER NOT NULL REFERENCES companies(id),
+  x           REAL NOT NULL,
+  y           REAL NOT NULL,
+  w           REAL NOT NULL,
+  h           REAL NOT NULL,
+  label       TEXT NOT NULL,
+  note        TEXT NOT NULL DEFAULT '',
+  created_by  INTEGER REFERENCES users(id),
+  created_at  TEXT NOT NULL DEFAULT (datetime('now')),
+  updated_at  TEXT NOT NULL DEFAULT (datetime('now'))
+);
+CREATE INDEX IF NOT EXISTS idx_vision_annotations_asset ON vision_annotations(asset_id);
+
+CREATE TABLE IF NOT EXISTS multimodal_investigations (
+  id            INTEGER PRIMARY KEY AUTOINCREMENT,
+  company_id    INTEGER NOT NULL REFERENCES companies(id),
+  equipment_id  INTEGER NOT NULL REFERENCES equipment(id),
+  question      TEXT NOT NULL,
+  config        TEXT NOT NULL DEFAULT '{}',
+  results       TEXT NOT NULL DEFAULT '{}',
+  created_by    INTEGER REFERENCES users(id),
+  created_at    TEXT NOT NULL DEFAULT (datetime('now')),
+  updated_at    TEXT NOT NULL DEFAULT (datetime('now'))
+);
+CREATE INDEX IF NOT EXISTS idx_mm_investigations_company
+  ON multimodal_investigations(company_id);
+
 -- Stage 5: AI workbench. All rows company-scoped. No chain-of-thought stored.
 CREATE TABLE IF NOT EXISTS ai_sessions (
   id          INTEGER PRIMARY KEY AUTOINCREMENT,

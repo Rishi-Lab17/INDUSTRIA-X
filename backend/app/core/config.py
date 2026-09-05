@@ -107,6 +107,16 @@ class Settings(BaseSettings):
     MAX_CONTEXT_CHUNKS: int = 8
     MAX_CONTEXT_CHARS: int = 12000
 
+    # --- Stage 6 multimodal (all local; numpy + PIL, no external calls) ---
+    SENSOR_MAX_ROWS: int = 100000
+    SENSOR_MAX_CHANNELS: int = 32
+    CHART_MAX_POINTS: int = 2000
+    FFT_MIN_SAMPLES: int = 64
+    IMAGE_MAX_DIMENSION: int = 4096
+    ANOMALY_DEFAULT_METHOD: str = "rolling_zscore"
+    ANOMALY_DEFAULT_WINDOW: int = 60
+    ANOMALY_DEFAULT_THRESHOLD: float = 3.0
+
     SOV_AI_INFERENCE: str = "LOCAL"
     SOV_DOC_PROCESSING: str = "LOCAL"
     SOV_KNOWLEDGE_BASE: str = "LOCAL"

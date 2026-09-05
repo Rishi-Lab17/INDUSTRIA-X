@@ -75,6 +75,9 @@ Rules enforced in code:
 | `backend/app/agents/` | allowlisted tools, PlannerAgent, RAGAgent,
   orchestrator state machine + run tracking (S5; vision/sensor/hypothesis
   agents land in later stages) |
+| `backend/app/multimodal/` | sensor ingest/quality/analysis (numpy),
+  vision ingest/quality, fusion (evidence, O/I/L, timeline, snapshots) (S6) |
+| `backend/app/agents/analysis_agents.py` | DataAnalysisAgent, VisionAgent (S6) |
 | `database/`| schema + migrations + seeds (S1–S2)           |
 | `storage/` | runtime uploads (git-ignored)                 |
 | `data/demo`| fictional PUMP P-204 demo set (S6/hero demo)  |

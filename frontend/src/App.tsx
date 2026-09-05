@@ -15,6 +15,9 @@ import DocumentDetail from "./pages/DocumentDetail";
 import Search from "./pages/Search";
 import Eval from "./pages/Eval";
 import Workbench from "./pages/Workbench";
+import SensorIntel from "./pages/SensorIntel";
+import VisionIntel from "./pages/VisionIntel";
+import Multimodal from "./pages/Multimodal";
 import Stub from "./pages/Stub";
 import type { JSX } from "react";
 
@@ -46,6 +49,9 @@ export default function App() {
             <Route path="search" element={<Search />} />
             <Route path="eval" element={<Eval />} />
             <Route path="workbench" element={<Workbench />} />
+            <Route path="sensors" element={<SensorIntel />} />
+            <Route path="vision" element={<VisionIntel />} />
+            <Route path="multimodal" element={<Multimodal />} />
             <Route path="investigations" element={<Stub title="Investigations" stage="Stage 5–8" desc="Agentic workbench, hypotheses, verification and approval." />} />
             <Route path="evidence" element={<Stub title="Evidence Center" stage="Stage 7" desc="Structured evidence cards and evidence graph." />} />
             <Route path="audit" element={<Stub title="Audit Trail" stage="Stage 9" desc="Searchable audit log of every important action." />} />
