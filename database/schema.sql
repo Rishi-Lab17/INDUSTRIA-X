@@ -118,6 +118,14 @@ CREATE TABLE IF NOT EXISTS documents (
   page_count          INTEGER,
   ocr_used            INTEGER NOT NULL DEFAULT 0,
   is_archived         INTEGER NOT NULL DEFAULT 0,
+  index_status        TEXT NOT NULL DEFAULT 'NOT_INDEXED' CHECK (index_status IN
+                      ('NOT_INDEXED','INDEXING','INDEXED','INDEX_FAILED','STALE','REINDEX_REQUIRED')),
+  indexed_version     INTEGER,
+  indexed_at          TEXT,
+  index_error         TEXT,
+  chunk_count         INTEGER NOT NULL DEFAULT 0,
+  embedding_model     TEXT,
+  indexed_checksum    TEXT,
   created_at          TEXT NOT NULL DEFAULT (datetime('now')),
   updated_at          TEXT NOT NULL DEFAULT (datetime('now'))
 );

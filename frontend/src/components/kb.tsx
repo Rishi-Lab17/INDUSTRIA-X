@@ -2,11 +2,20 @@ import { useAuth } from "../auth";
 
 export function useKBRole() {
   const { user } = useAuth();
+  const staff = user?.role === "COMPANY_ADMIN" || user?.role === "ENGINEER";
   return {
     canUpload: true, // all authenticated roles may upload
-    canRetry: user?.role === "COMPANY_ADMIN" || user?.role === "ENGINEER",
+    canRetry: staff,
     canArchive: user?.role === "COMPANY_ADMIN",
+    canIndex: staff,
   };
+}
+
+export function indexDot(status: string) {
+  if (status === "INDEXED") return "dot-online";
+  if (status === "INDEX_FAILED") return "dot-offline";
+  if (status === "STALE") return "dot-warn";
+  return "dot-warn";
 }
 
 export function statusDot(status: string) {

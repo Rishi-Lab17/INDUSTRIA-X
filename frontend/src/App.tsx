@@ -12,6 +12,8 @@ import EquipmentForm from "./pages/EquipmentForm";
 import EquipmentDetail from "./pages/EquipmentDetail";
 import KnowledgeBase from "./pages/KnowledgeBase";
 import DocumentDetail from "./pages/DocumentDetail";
+import Search from "./pages/Search";
+import Eval from "./pages/Eval";
 import Stub from "./pages/Stub";
 import type { JSX } from "react";
 
@@ -40,6 +42,8 @@ export default function App() {
             <Route path="equipment/:id/edit" element={<EquipmentForm />} />
             <Route path="knowledge" element={<KnowledgeBase />} />
             <Route path="knowledge/:id" element={<DocumentDetail />} />
+            <Route path="search" element={<Search />} />
+            <Route path="eval" element={<Eval />} />
             <Route path="investigations" element={<Stub title="Investigations" stage="Stage 5–8" desc="Agentic workbench, hypotheses, verification and approval." />} />
             <Route path="evidence" element={<Stub title="Evidence Center" stage="Stage 7" desc="Structured evidence cards and evidence graph." />} />
             <Route path="audit" element={<Stub title="Audit Trail" stage="Stage 9" desc="Searchable audit log of every important action." />} />

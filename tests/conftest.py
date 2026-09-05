@@ -11,6 +11,10 @@ _tmp.close()
 os.environ["DATABASE_URL"] = f"sqlite:///{_tmp.name}"
 os.environ["BCRYPT_ROUNDS"] = "4"
 os.environ["APP_ENV"] = "local"
+# Stage 4 must never touch the real dev vector store.
+_tmpvec = tempfile.NamedTemporaryFile(suffix=".vec.db", delete=False)
+_tmpvec.close()
+os.environ["VECTOR_DB_PATH"] = _tmpvec.name
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "backend"))

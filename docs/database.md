@@ -23,5 +23,12 @@ sanitized error + note, extracted_text + extracted_json sections contract,
 page_count, ocr_used, is_archived; indexes on company/equipment/status/hash).
 No migration needed for existing DBs (new table via schema).
 
+Stage 4 additions: `documents.index_status/indexed_version/indexed_at/`
+`index_error/chunk_count/embedding_model/indexed_checksum` (ALTER-migrated);
+`database/vectors.db` (gitignored): `chunks` (full provenance metadata +
+active flag), `embeddings` (float32 blobs, never exposed), `chunks_fts`
+(FTS5 porter, content-synced via explicit triggers + self-healing backfill —
+SQLite does not create these automatically).
+
 Upgrade path (Stage 10): swap `DATABASE_URL` to Postgres + add migrations;
 no query code changes needed beyond the `db.py` connector.

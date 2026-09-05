@@ -20,25 +20,43 @@ def connect() -> sqlite3.Connection:
     return con
 
 
+def _columns(con, table: str) -> set[str]:
+    return {r[1] for r in con.execute(f"PRAGMA table_info({table})").fetchall()}
+
+
+def _migrate(con) -> None:
+    """Additive forward-migration for pre-existing databases. Runs BEFORE the
+    schema script so CREATE INDEX never references missing columns."""
+    tables = {r[0] for r in con.execute(
+        "SELECT name FROM sqlite_master WHERE type = 'table'").fetchall()}
+
+    def ensure(table: str, col: str, ddl: str) -> None:
+        if table in tables and col not in _columns(con, table):
+            con.execute(f"ALTER TABLE {table} ADD COLUMN {col} {ddl}")
+
+    ensure("users", "phone", "TEXT")
+    ensure("users", "phone_verified", "INTEGER NOT NULL DEFAULT 0")
+    ensure("companies", "settings", "TEXT NOT NULL DEFAULT '{}'")
+    ensure("audit_events", "entity_type", "TEXT")
+    ensure("audit_events", "entity_id", "INTEGER")
+    for col, ddl in (
+            ("processing_note", "TEXT"),
+            ("index_status", "TEXT NOT NULL DEFAULT 'NOT_INDEXED'"),
+            ("indexed_version", "INTEGER"),
+            ("indexed_at", "TEXT"),
+            ("index_error", "TEXT"),
+            ("chunk_count", "INTEGER NOT NULL DEFAULT 0"),
+            ("embedding_model", "TEXT"),
+            ("indexed_checksum", "TEXT")):
+        ensure("documents", col, ddl)
+
+
 def init_db() -> None:
     schema = SCHEMA_PATH.read_text(encoding="utf-8")
     con = connect()
     try:
+        _migrate(con)
         con.executescript(schema)
-        # Lightweight forward-migration for pre-existing databases.
-        cols = {r[1] for r in con.execute("PRAGMA table_info(users)").fetchall()}
-        if "phone" not in cols:
-            con.execute("ALTER TABLE users ADD COLUMN phone TEXT")
-        if "phone_verified" not in cols:
-            con.execute("ALTER TABLE users ADD COLUMN phone_verified INTEGER NOT NULL DEFAULT 0")
-        ccols = {r[1] for r in con.execute("PRAGMA table_info(companies)").fetchall()}
-        if "settings" not in ccols:
-            con.execute("ALTER TABLE companies ADD COLUMN settings TEXT NOT NULL DEFAULT '{}'")
-        acols = {r[1] for r in con.execute("PRAGMA table_info(audit_events)").fetchall()}
-        if "entity_type" not in acols:
-            con.execute("ALTER TABLE audit_events ADD COLUMN entity_type TEXT")
-        if "entity_id" not in acols:
-            con.execute("ALTER TABLE audit_events ADD COLUMN entity_id INTEGER")
         con.execute("CREATE INDEX IF NOT EXISTS idx_audit_entity"
                     " ON audit_events(entity_type, entity_id)")
         con.commit()

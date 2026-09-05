@@ -22,6 +22,7 @@ from ..db import connect
 from ..processing.base import ProcessingFailed
 from ..processing.registry import SUPPORTED_TYPES, get_processor
 from ..processing.validate import TYPE_TO_MIME, ValidationError, validate_upload
+from ..rag import service as rag_service
 
 router = APIRouter(prefix="/api/documents", tags=["documents"])
 
@@ -66,6 +67,12 @@ def _meta_row(row, equipment_code=None, uploader_name=None) -> dict:
         "processing_note": row["processing_note"],
         "page_count": row["page_count"], "ocr_used": bool(row["ocr_used"]),
         "is_archived": bool(row["is_archived"]),
+        "index_status": row["index_status"] if "index_status" in row.keys() else "NOT_INDEXED",
+        "indexed_version": row["indexed_version"] if "indexed_version" in row.keys() else None,
+        "indexed_at": row["indexed_at"] if "indexed_at" in row.keys() else None,
+        "index_error": row["index_error"] if "index_error" in row.keys() else None,
+        "chunk_count": row["chunk_count"] if "chunk_count" in row.keys() else 0,
+        "embedding_model": row["embedding_model"] if "embedding_model" in row.keys() else None,
         "created_at": row["created_at"], "updated_at": row["updated_at"],
         "text_preview": (row["extracted_text"] or "")[:300],
     }
@@ -294,6 +301,8 @@ async def upload_document(request: Request,
                    "parent": parent_id},
                   company_id=sess["company_id"], user_id=sess["user_id"],
                   ip=_client_ip(request), entity_type="document", entity_id=doc_id)
+        # Previous version retires: its chunks go inactive (STALE), history kept.
+        rag_service.retire_version(parent_id)
     if equipment_id is not None:
         log_event("document_equipment_associated",
                   {"document_id": doc_id, "equipment_id": equipment_id},
@@ -444,6 +453,7 @@ def archive_document(document_id: int, request: Request,
                     " processing_status = 'ARCHIVED', updated_at = ? WHERE id = ?",
                     (utcnow_iso(), document_id))
         con.commit()
+        rag_service.set_archived(document_id, True)
     finally:
         con.close()
     log_event("document_archived", {"document_id": document_id},
@@ -468,6 +478,7 @@ def delete_document(document_id: int, request: Request,
             pass
         con.execute("DELETE FROM documents WHERE id = ?", (document_id,))
         con.commit()
+        rag_service.delete_vectors(document_id)
     finally:
         con.close()
     # The audit event itself is retained: deletion is never silent.

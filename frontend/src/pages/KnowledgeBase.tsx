@@ -1,12 +1,13 @@
 import { useCallback, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { api, uploadDocument, type Equipment, type KBDocument } from "../api";
-import { formatSize, statusDot, SUPPORTED_LABELS, useKBRole } from "../components/kb";
+import { api, uploadDocument, type Equipment, type KBDocument, type KBHealth } from "../api";
+import { formatSize, indexDot, statusDot, SUPPORTED_LABELS, useKBRole } from "../components/kb";
 
 export default function KnowledgeBase() {
-  const { canUpload, canRetry, canArchive } = useKBRole();
+  const { canUpload, canRetry, canArchive, canIndex } = useKBRole();
   const [docs, setDocs] = useState<KBDocument[]>([]);
   const [total, setTotal] = useState(0);
+  const [kb, setKb] = useState<KBHealth | null>(null);
   const [err, setErr] = useState("");
   const [ok, setOk] = useState("");
   // filters
@@ -47,6 +48,7 @@ export default function KnowledgeBase() {
 
   useEffect(() => {
     api.equipmentList().then((r) => setEquipment(r.equipment)).catch(() => setEquipment([]));
+    api.kbHealth().then(setKb).catch(() => setKb(null));
   }, []);
 
   // Live status refresh while anything is mid-processing.
@@ -92,6 +94,18 @@ export default function KnowledgeBase() {
     }
   }
 
+  async function indexDoc(id: number, force: boolean) {
+    setErr("");
+    try {
+      const r = force ? await api.kbReindex(id) : await api.kbIndex(id);
+      setOk(`Indexing ${r.status}: ${r.detail}`);
+      load();
+      api.kbHealth().then(setKb).catch(() => undefined);
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : "Indexing failed");
+    }
+  }
+
   async function archive(id: number) {
     if (!window.confirm("Archive this document? It stays auditable.")) return;
     setErr("");
@@ -122,6 +136,22 @@ export default function KnowledgeBase() {
 
       {err && <div className="alert alert-error">{err}</div>}
       {ok && <div className="alert alert-ok">{ok}</div>}
+
+      {kb && (
+        <div className="panel" style={{ marginBottom: 16 }}>
+          <div style={{ display: "flex", gap: 18, flexWrap: "wrap", fontSize: 13 }}>
+            <span><b>{kb.indexed}</b> <span style={{ color: "var(--muted)" }}>indexed</span></span>
+            <span><b>{kb.not_indexed}</b> <span style={{ color: "var(--muted)" }}>not indexed</span></span>
+            <span><b>{kb.stale}</b> <span style={{ color: "var(--muted)" }}>stale</span></span>
+            <span><b>{kb.failed}</b> <span style={{ color: "var(--muted)" }}>failed</span></span>
+            <span><b>{kb.chunks_active}</b> <span style={{ color: "var(--muted)" }}>active chunks</span></span>
+            <span style={{ color: "var(--muted)" }}>
+              model: <b style={{ color: "var(--text)" }}>{kb.embedding_model.split("/").pop()}</b>
+              {" "}· vector db: <b style={{ color: "var(--text)" }}>{kb.vector_db}</b>
+            </span>
+          </div>
+        </div>
+      )}
 
       <div className="panel" style={{ marginBottom: 16 }}>
         <div className="grid grid-3">
@@ -169,7 +199,7 @@ export default function KnowledgeBase() {
         <div className="panel" style={{ padding: 8 }}>
           <table className="table">
             <thead>
-              <tr><th>Filename</th><th>Type</th><th>Size</th><th>Equipment</th><th>Ver</th><th>Status</th><th>Uploaded</th><th>Actions</th></tr>
+              <tr><th>Filename</th><th>Type</th><th>Size</th><th>Equipment</th><th>Ver</th><th>Status</th><th>Index</th><th>Uploaded</th><th>Actions</th></tr>
             </thead>
             <tbody>
               {docs.map((d) => (
@@ -180,9 +210,32 @@ export default function KnowledgeBase() {
                   <td>{d.equipment_code ?? "—"}</td>
                   <td>v{d.version}</td>
                   <td><span className="badge"><span className={`dot ${statusDot(d.processing_status)}`} />{d.processing_status}</span></td>
+                  <td>
+                    <span className="badge" title={d.index_error ?? d.embedding_model ?? ""}>
+                      <span className={`dot ${indexDot(d.index_status)}`} />{d.index_status}
+                    </span>
+                    {d.index_status === "STALE" && (
+                      <div style={{ fontSize: 11, color: "var(--warning)", marginTop: 4 }}>newer version available</div>
+                    )}
+                    {d.index_status === "INDEX_FAILED" && d.index_error && (
+                      <div style={{ fontSize: 11, color: "var(--critical)", marginTop: 4 }}>{d.index_error}</div>
+                    )}
+                    {d.chunk_count > 0 && (
+                      <div style={{ fontSize: 11, color: "var(--muted)", marginTop: 4 }}>{d.chunk_count} chunks</div>
+                    )}
+                  </td>
                   <td style={{ fontSize: 12 }}>{d.created_at.slice(0, 10)}</td>
                   <td style={{ whiteSpace: "nowrap" }}>
                     <Link to={`/knowledge/${d.id}`}>View</Link>
+                    {canIndex && d.processing_status === "COMPLETED" && d.index_status !== "INDEXED" && (
+                      <> · <button className="linklike" onClick={() => indexDoc(d.id, false)}>Index</button></>
+                    )}
+                    {canIndex && d.index_status === "INDEXED" && (
+                      <> · <button className="linklike" onClick={() => indexDoc(d.id, true)}>Reindex</button></>
+                    )}
+                    {canIndex && (d.index_status === "INDEX_FAILED" || d.index_status === "STALE") && (
+                      <> · <button className="linklike" onClick={() => indexDoc(d.id, true)}>Reindex</button></>
+                    )}
                     {d.processing_status === "FAILED" && canRetry && (
                       <> · <button className="linklike" onClick={() => retry(d.id)}>Retry</button></>
                     )}

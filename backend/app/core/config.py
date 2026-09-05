@@ -76,6 +76,22 @@ class Settings(BaseSettings):
 
     VECTOR_DB_PATH: str = "./database/vectors.db"
 
+    # --- Stage 4 private RAG (all local; onnx embedding model + sqlite store) ---
+    EMBEDDING_PROVIDER: str = "fastembed"
+    EMBEDDING_MODEL: str = "sentence-transformers/all-MiniLM-L6-v2"
+    CHUNK_TARGET_CHARS: int = 800
+    CHUNK_MIN_CHARS: int = 200
+    CHUNK_MAX_CHARS: int = 2000
+    CHUNK_OVERLAP_CHARS: int = 120
+    RETRIEVAL_TOP_K: int = 8
+    RETRIEVAL_CANDIDATES: int = 40
+    RETRIEVAL_ALPHA: float = 0.6
+    MIN_RELEVANCE_SCORE: float = 0.25
+    RERANK_EQUIPMENT_BOOST: float = 0.15
+    RERANK_PHRASE_BOOST: float = 0.10
+    MAX_CONTEXT_CHUNKS: int = 8
+    MAX_CONTEXT_CHARS: int = 12000
+
     SOV_AI_INFERENCE: str = "LOCAL"
     SOV_DOC_PROCESSING: str = "LOCAL"
     SOV_KNOWLEDGE_BASE: str = "LOCAL"

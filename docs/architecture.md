@@ -29,9 +29,9 @@ Why this stack:
 - **Modular monolith** (spec §44): one backend, one frontend, no K8s/service mesh.
 - **SQLite (WAL)** instead of Postgres: zero-install, file-local, sovereign;
   upgrade path to Postgres is a single `DATABASE_URL` change (Stage 10).
-- **Local vector store** (Stage 4): SQLite + sqlite-vec/FTS file at
-  `./database/vectors.db`, embeddings from local `sentence-transformers`
-  (CPU). No Pinecone/Cloud.
+- **Local vector store** (Stage 4): SQLite file at `./database/vectors.db`
+  with cosine similarity over fastembed onnx vectors + FTS5/BM25 lexical arm.
+  No server, no cloud.
 - **Frontend**: React + Vite + TypeScript + Tailwind, dark-navy command-center
   theme (`#071521` bg, `#00A6C7` accent). Served separately in dev, static in prod.
 

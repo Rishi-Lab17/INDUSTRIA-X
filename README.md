@@ -12,7 +12,9 @@
 
 - Stage 1 — COMPLETE (auth, OTP, sessions, RBAC, health, sovereignty)
 - Stage 2 — COMPLETE (company workspace, equipment digital passport + QR)
-- Stage 3 — NEXT (knowledge base + secure document upload)
+- Stage 3 — COMPLETE (knowledge base + local document processing)
+- Stage 4 — COMPLETE (local embeddings + vector DB + hybrid RAG + provenance)
+- Stage 5 — NEXT (Kimi K3 + agent orchestration)
 
 ## Team Git workflow
 

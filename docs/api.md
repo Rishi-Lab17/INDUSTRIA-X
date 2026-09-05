@@ -64,3 +64,15 @@ Knowledge Base — Stage 3 (`routers/documents.py`, `processing/`):
 - `POST /{id}/retry` (ADMIN, ENGINEER; FAILED only) — never versions.
 - `POST /{id}/archive` + `DELETE /{id}` (ADMIN; soft-hide / permanent + audit).
 - Cross-company ids → 404 everywhere; errors sanitized.
+
+Knowledge retrieval — Stage 4 (`routers/knowledge.py`, `rag/`):
+
+- `POST /api/knowledge/documents/{id}/index` + `/reindex` (ADMIN, ENGINEER)
+  → INDEXED/INDEX_FAILED with chunk counts; duplicates skipped honestly.
+- `GET /api/knowledge/documents/{id}/index-status` (all roles).
+- `POST /api/knowledge/reindex` (ADMIN, ENGINEER; optional equipment_id).
+- `GET /api/knowledge/health` (all roles) → real counts, model, vector status.
+- `POST /api/knowledge/search` (all roles) → OK citations (provenance, scores,
+  why-signals, packed context) or INSUFFICIENT_EVIDENCE; equipment/document
+  filters ownership-checked; historical mode explicit.
+- `GET /api/knowledge/eval` (ADMIN, ENGINEER) → live retrieval evaluation.

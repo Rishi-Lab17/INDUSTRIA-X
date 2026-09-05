@@ -6,13 +6,18 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from .core.config import get_settings
 from .db import init_db
-from .routers import auth, company, documents, equipment, system
+from .routers import auth, company, documents, equipment, knowledge, system
 
 
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
     init_db()
     get_settings()  # resolve settings early so misconfig fails fast
+    try:
+        from .rag.store import init_store
+        init_store()
+    except Exception:
+        pass  # vector store initializes lazily on first RAG use
     yield
 
 
@@ -29,6 +34,7 @@ app.add_middleware(
 app.include_router(auth.router)
 app.include_router(company.router)
 app.include_router(documents.router)
+app.include_router(knowledge.router)
 app.include_router(equipment.router)
 app.include_router(system.router)
 

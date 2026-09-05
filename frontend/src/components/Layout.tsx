@@ -7,6 +7,7 @@ const LINKS = [
   { to: "/workspace", label: "Company Workspace" },
   { to: "/equipment", label: "Equipment" },
   { to: "/knowledge", label: "Knowledge Base" },
+  { to: "/search", label: "Knowledge Search" },
   { to: "/investigations", label: "Investigations" },
   { to: "/evidence", label: "Evidence Center" },
   { to: "/audit", label: "Audit Trail" },

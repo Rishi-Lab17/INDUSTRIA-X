@@ -96,9 +96,23 @@ def health():
         services["email_provider"] = {"status": "ONLINE",
                                       "detail": "Development outbox (local, no external delivery)"}
 
-    # Stages not built yet report honestly instead of pretending.
-    services["rag"] = {"status": "OFFLINE", "detail": "Stage 4 not implemented yet"}
-    services["vector_db"] = {"status": "OFFLINE", "detail": "Stage 4 not implemented yet"}
+    # RAG: real local probes — embedding model + vector store file.
+    try:
+        from ..rag.embeddings import get_embedding_provider
+        from ..rag.store import fts_rebuild_check
+        emb = get_embedding_provider().health()
+        if emb["ok"]:
+            services["rag"] = {"status": "ONLINE",
+                               "detail": f"embeddings {emb['model']} ({emb['dimension']}d), local"}
+        else:
+            services["rag"] = {"status": "ERROR",
+                               "detail": f"embedding model unavailable ({emb['model']})"}
+        services["vector_db"] = ({"status": "ONLINE", "detail": "Local vector store ready"}
+                                 if fts_rebuild_check() else
+                                 {"status": "ERROR", "detail": "Vector store unreadable"})
+    except Exception as e:
+        services["rag"] = {"status": "ERROR", "detail": f"RAG probe failed: {type(e).__name__}"}
+        services["vector_db"] = {"status": "ERROR", "detail": "Vector store unreadable"}
     services["sensor_engine"] = {"status": "OFFLINE", "detail": "Stage 6 not implemented yet"}
     services["vision_engine"] = {"status": "OFFLINE", "detail": "Stage 6 not implemented yet"}
 

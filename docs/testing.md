@@ -1,6 +1,6 @@
-# Testing (Stage 1 + email-OTP hardening + Stage 2 + Stage 3)
+# Testing (Stages 1–4)
 
-Run from the root: `python -m pytest tests/ -v` (39 tests, all passing).
+Run from the root: `python -m pytest tests/ -v` (55 tests, all passing).
 
 `tests/test_stage1_auth.py` (5 tests): full register→verify→login→me→logout→
 revoked flow (OTP read from the fake provider's server-side record, never the
@@ -41,6 +41,16 @@ leak scan, retry success/fail paths (never versions), SHA-256 + duplicate +
 version chains, storage layout safety, full cross-company 404s, download
 bytes/type, preview shape, filters + injection probe, archive/delete semantics,
 complete audit trail, OCR-abstraction honesty (unavailable engine).
+
+`tests/test_stage4_rag.py` (16 tests): real fastembed provider (384d,
+deterministic, labelled test provider), structure-aware chunking + metadata,
+index lifecycle + duplicate skip, hybrid search with validated provenance
+(no vectors/scores-mislabelled), equipment scoping, INSUFFICIENT_EVIDENCE,
+version consistency + historical retrieval, archive/delete vector semantics,
+cross-company 404s, RBAC matrix, honest INDEX_FAILED + retry, query
+normalization, dedup + rank tracking, KB health + search audit, live
+evaluation (MRR/precision/recall/latency + negative control), offline
+sockets-blocked search + index, perf bounds with printed timings.
 
 Failure matrix covers: invalid login, unverified login, wrong/expired/reused
 OTP, resend cooldown + hourly cap, verify brute-force, Resend outage/reject,

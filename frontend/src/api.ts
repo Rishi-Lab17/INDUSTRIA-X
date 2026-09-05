@@ -56,6 +56,12 @@ export interface KBDocument {
   page_count: number | null;
   ocr_used: boolean;
   is_archived: boolean;
+  index_status: string;
+  indexed_version: number | null;
+  indexed_at: string | null;
+  index_error: string | null;
+  chunk_count: number;
+  embedding_model: string | null;
   created_at: string;
   updated_at: string;
   text_preview: string;
@@ -131,6 +137,69 @@ async function req<T>(path: string, opts: RequestInit = {}, auth = true): Promis
   return data as T;
 }
 
+export interface Citation {
+  document_id: number;
+  document_version: number;
+  chunk_id: string;
+  filename: string;
+  page: number | null;
+  section: string | null;
+  equipment_id: number | null;
+  excerpt: string;
+  semantic_score: number;
+  lexical_score: number;
+  combined_score: number;
+  initial_rank: number | null;
+  final_rank: number;
+  retrieval_method: string;
+  why_retrieved: string[];
+}
+
+export interface SearchResult {
+  status: "OK" | "INSUFFICIENT_EVIDENCE";
+  original_query: string;
+  normalized_query: string;
+  citations: Citation[];
+  count: number;
+  mode: string;
+  context?: string;
+  context_chars?: number;
+  context_truncated?: boolean;
+  chunks_used?: number;
+  candidates?: number;
+  best_score?: number | null;
+  minimum_relevance_score?: number;
+  reason?: string;
+}
+
+export interface KBHealth {
+  documents_total: number;
+  documents_ready: number;
+  indexed: number;
+  indexing: number;
+  stale: number;
+  failed: number;
+  not_indexed: number;
+  chunks_total: number;
+  chunks_active: number;
+  embedding_provider: string;
+  embedding_model: string;
+  embedding_dimension: number;
+  embedding_models_in_store: string[];
+  vector_db: string;
+  last_indexed_at: string | null;
+}
+
+export interface EvalReport {
+  queries: {
+    query: string; expected: string | null; got: string[];
+    rank: number | null; mrr: number; precision_at_k: number;
+    recall_at_k: number; latency_ms: number; pass: boolean;
+  }[];
+  k: number;
+  summary: { pass_rate: number; mean_mrr: number; mean_latency_ms: number; evaluated_at: string };
+}
+
 export const api = {
   register: (b: { company_name: string; name: string; email: string; password: string; mobile_number?: string }) =>
     req<{ message: string; email_masked: string; dev_mode: boolean }>(
@@ -188,4 +257,27 @@ export const api = {
     req<KBDocument>(`/api/documents/${id}/retry`, { method: "POST" }),
   kbDelete: (id: number) =>
     req<{ message: string }>(`/api/documents/${id}`, { method: "DELETE" }),
+  kbIndex: (id: number) =>
+    req<{ document_id: number; status: string; detail: string; chunks: number }>(
+      `/api/knowledge/documents/${id}/index`, { method: "POST" }),
+  kbIndexStatus: (id: number) =>
+    req<{ id: number; index_status: string; indexed_version: number | null;
+          indexed_at: string | null; index_error: string | null;
+          chunk_count: number; embedding_model: string | null;
+          version: number; processing_status: string }>(
+      `/api/knowledge/documents/${id}/index-status`),
+  kbReindex: (id: number) =>
+    req<{ document_id: number; status: string; detail: string; chunks: number }>(
+      `/api/knowledge/documents/${id}/reindex`, { method: "POST" }),
+  kbReindexCompany: (equipmentId?: number) =>
+    req<{ reindexed: number; results: unknown[] }>("/api/knowledge/reindex", {
+      method: "POST", body: JSON.stringify(
+        equipmentId ? { equipment_id: equipmentId } : {}) }),
+  kbHealth: () => req<KBHealth>("/api/knowledge/health"),
+  kbSearch: (b: { query: string; equipment_id?: number; document_id?: number;
+                  source_types?: string[]; top_k?: number;
+                  include_historical?: boolean }) =>
+    req<SearchResult>("/api/knowledge/search", {
+      method: "POST", body: JSON.stringify(b) }),
+  kbEval: () => req<EvalReport>("/api/knowledge/eval"),
 };

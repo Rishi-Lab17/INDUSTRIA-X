@@ -1,13 +1,13 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { api, type KBDocument, type KBPreview } from "../api";
-import { formatSize, statusDot, useKBRole } from "../components/kb";
+import { formatSize, indexDot, statusDot, useKBRole } from "../components/kb";
 
 export default function DocumentDetail() {
   const { id } = useParams();
   const did = Number(id);
   const nav = useNavigate();
-  const { canRetry, canArchive } = useKBRole();
+  const { canRetry, canArchive, canIndex } = useKBRole();
   const [doc, setDoc] = useState<KBDocument | null>(null);
   const [preview, setPreview] = useState<KBPreview | null>(null);
   const [err, setErr] = useState("");
@@ -50,6 +50,18 @@ export default function DocumentDetail() {
       if (p) setPreview(p);
     } catch (e) {
       setErr(e instanceof Error ? e.message : "Retry failed");
+    }
+  }
+
+  async function index(force: boolean) {
+    setErr("");
+    setOk("");
+    try {
+      const r = force ? await api.kbReindex(did) : await api.kbIndex(did);
+      setOk(`Indexing ${r.status}: ${r.detail}`);
+      load();
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : "Indexing failed");
     }
   }
 
@@ -111,6 +123,12 @@ export default function DocumentDetail() {
         </div>
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
           <button className="btn btn-ghost" onClick={download}>Download</button>
+          {canIndex && doc.processing_status === "COMPLETED" && doc.index_status !== "INDEXED" && (
+            <button className="btn btn-ghost" onClick={() => index(false)}>Index</button>
+          )}
+          {canIndex && doc.index_status === "INDEXED" && (
+            <button className="btn btn-ghost" onClick={() => index(true)}>Reindex</button>
+          )}
           {doc.processing_status === "FAILED" && canRetry && (
             <button className="btn btn-ghost" onClick={retry}>Retry</button>
           )}
@@ -132,7 +150,17 @@ export default function DocumentDetail() {
           <div style={{ marginBottom: 12 }}>
             <span className="badge"><span className={`dot ${statusDot(doc.processing_status)}`} />{doc.processing_status}</span>
             {doc.is_archived && <span className="badge" style={{ marginLeft: 8 }}>ARCHIVED</span>}
+            <span className="badge" style={{ marginLeft: 8 }} title={doc.index_error ?? doc.embedding_model ?? ""}>
+              <span className={`dot ${indexDot(doc.index_status)}`} />INDEX: {doc.index_status}
+            </span>
           </div>
+          <div className="kv"><span>CHUNKS</span><span>{doc.chunk_count}{doc.embedding_model ? ` · ${doc.embedding_model.split("/").pop()}` : ""}</span></div>
+          {doc.index_status === "STALE" && (
+            <div className="alert alert-warn">A newer document version exists — this index is historical.</div>
+          )}
+          {doc.index_error && (
+            <div className="alert alert-error" style={{ marginTop: 12 }}>{doc.index_error}</div>
+          )}
           {rows.map(([k, v]) => (
             <div className="kv" key={k}><span>{k}</span><span>{v}</span></div>
           ))}
