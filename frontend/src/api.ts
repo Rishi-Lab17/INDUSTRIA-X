@@ -307,6 +307,70 @@ export interface VisionAnnotation {
   updated_at: string;
 }
 
+export interface Investigation {
+  id: number;
+  company_id: number;
+  workspace_id: number | null;
+  equipment_id: number;
+  title: string;
+  problem_statement: string;
+  category: string;
+  severity: string;
+  priority: number;
+  status: string;
+  created_by: number | null;
+  assigned_to: number | null;
+  created_at: string;
+  updated_at: string;
+  closed_at: string | null;
+}
+
+export interface CaseEvidence {
+  id: number;
+  investigation_id: number;
+  equipment_id: number | null;
+  type: string;
+  source: string;
+  title: string;
+  description: string;
+  content: string;
+  confidence: number | null;
+  reliability: number | null;
+  timestamp: number | null;
+  created_by: number | null;
+  metadata: Record<string, unknown>;
+  provenance: Record<string, unknown>;
+  created_at: string;
+  is_active: number;
+}
+
+export interface CaseHypothesis {
+  id: number;
+  title: string;
+  description: string;
+  category: string;
+  status: string;
+  support_score: number;
+  contradiction_score: number;
+  completeness: number;
+  confidence_band: string;
+  rank: number;
+  supporting: CaseEvidenceLite[];
+  contradicting: CaseEvidenceLite[];
+  neutral: CaseEvidenceLite[];
+  expected_slots: string[];
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CaseEvidenceLite {
+  id: number;
+  type: string;
+  title: string;
+  quality: number;
+  freshness_band: string;
+}
+
 export const api = {
   register: (b: { company_name: string; name: string; email: string; password: string; mobile_number?: string }) =>
     req<{ message: string; email_masked: string; dev_mode: boolean }>(
@@ -510,4 +574,130 @@ export const api = {
   mmSnapshot: (b: Record<string, unknown>) =>
     req<{ investigation_id: number; message: string }>("/api/investigations/snapshot", {
       method: "POST", body: JSON.stringify(b) }),
+  caseWorkspaces: () =>
+    req<{ workspaces: { id: number; name: string }[] }>("/api/cases/workspaces"),
+  caseList: (params: Record<string, string | number | undefined>) => {
+    const q = Object.entries(params)
+      .filter(([, v]) => v !== undefined && v !== "")
+      .map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(String(v))}`)
+      .join("&");
+    return req<{ investigations: Investigation[]; total: number; page: number; page_size: number }>(
+      `/api/cases${q ? `?${q}` : ""}`);
+  },
+  caseCreate: (b: Record<string, unknown>) =>
+    req<Investigation>("/api/cases", { method: "POST", body: JSON.stringify(b) }),
+  caseGet: (id: number) =>
+    req<{ investigation: Investigation; equipment: Equipment | null;
+          counts: { evidence: number; hypotheses: number } }>(`/api/cases/${id}`),
+  casePatch: (id: number, b: Record<string, unknown>) =>
+    req<Investigation>(`/api/cases/${id}`, { method: "PATCH", body: JSON.stringify(b) }),
+  caseStatus: (id: number, status: string) =>
+    req<Investigation>(`/api/cases/${id}/status`, {
+      method: "POST", body: JSON.stringify({ status }) }),
+  caseEvidenceList: (id: number, params: Record<string, string | undefined> = {}) => {
+    const q = Object.entries(params)
+      .filter(([, v]) => v !== undefined && v !== "")
+      .map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(String(v))}`)
+      .join("&");
+    return req<{ evidence: CaseEvidence[]; total: number }>(
+      `/api/cases/${id}/evidence${q ? `?${q}` : ""}`);
+  },
+  caseEvidenceAdd: (id: number, b: Record<string, unknown>) =>
+    req<CaseEvidence>(`/api/cases/${id}/evidence`, {
+      method: "POST", body: JSON.stringify(b) }),
+  caseEvidencePatch: (id: number, eid: number, b: Record<string, unknown>) =>
+    req<CaseEvidence>(`/api/cases/${id}/evidence/${eid}`, {
+      method: "PATCH", body: JSON.stringify(b) }),
+  caseEvidenceArchive: (id: number, eid: number) =>
+    req<{ message: string }>(`/api/cases/${id}/evidence/${eid}/archive`, { method: "POST" }),
+  caseHypotheses: (id: number) =>
+    req<{ hypotheses: CaseHypothesis[] }>(`/api/cases/${id}/hypotheses`),
+  caseHypothesisCreate: (id: number, b: Record<string, unknown>) =>
+    req<CaseHypothesis>(`/api/cases/${id}/hypotheses`, {
+      method: "POST", body: JSON.stringify(b) }),
+  caseHypothesisGenerate: (id: number, aiSessionId?: number) =>
+    req<{ created: { id: number; title: string }[]; notes: string[];
+          hypotheses: CaseHypothesis[];
+          ai: { available: boolean; note: string | null; suggestions: unknown[] } }>(
+      `/api/cases/${id}/hypotheses/generate`, {
+        method: "POST",
+        body: JSON.stringify(aiSessionId ? { ai_session_id: aiSessionId } : {}) }),
+  caseHypothesisStatus: (id: number, hid: number, status: string) =>
+    req<CaseHypothesis>(`/api/cases/${id}/hypotheses/${hid}`, {
+      method: "PATCH", body: JSON.stringify({ status }) }),
+  caseLink: (id: number, hid: number, b: Record<string, unknown>) =>
+    req<{ hypotheses: CaseHypothesis[] }>(
+      `/api/cases/${id}/hypotheses/${hid}/links`, {
+        method: "POST", body: JSON.stringify(b) }),
+  caseUnlink: (id: number, hid: number, eid: number) =>
+    req<{ hypotheses: CaseHypothesis[] }>(
+      `/api/cases/${id}/hypotheses/${hid}/links/${eid}`, { method: "DELETE" }),
+  caseRescore: (id: number) =>
+    req<{ hypotheses: CaseHypothesis[] }>(`/api/cases/${id}/rescore`, { method: "POST" }),
+  caseGraph: (id: number) =>
+    req<{ nodes: { id: string; kind: string; label: string; [k: string]: unknown }[];
+          edges: { from: string; to: string; relation: string }[];
+          counts: { nodes: number; edges: number } }>(
+      `/api/cases/${id}/evidence-graph`),
+  caseRelate: (id: number, b: Record<string, unknown>) =>
+    req<Record<string, unknown>>(`/api/cases/${id}/relations`, {
+      method: "POST", body: JSON.stringify(b) }),
+  caseMissing: (id: number) =>
+    req<{ missing: { hypothesis_id: number; hypothesis: string; slot: string;
+                     title: string; kind: string; priority: string }[] }>(
+      `/api/cases/${id}/missing-evidence`),
+  caseNBE: (id: number) =>
+    req<{ recommendations: { id: number; rank: number; title: string; kind: string;
+                             priority: string; effort: string; safety: string;
+                             expected_value: string; discriminative_value: number;
+                             rationale: Record<string, string>; status: string }[] }>(
+      `/api/cases/${id}/next-best-evidence`),
+  caseRecoStatus: (id: number, rid: number, status: string) =>
+    req<Record<string, unknown>>(`/api/cases/${id}/recommendations/${rid}`, {
+      method: "PATCH", body: JSON.stringify({ status }) }),
+  caseSimulate: (id: number, b: Record<string, unknown>) =>
+    req<{ hypothesis_id: number; slot: string; outcome: string;
+          deltas: Record<string, number>; completeness: Record<string, number>;
+          ranks_before: Record<string, number>; ranks_after: Record<string, number> }>(
+      `/api/cases/${id}/simulate`, { method: "POST", body: JSON.stringify(b) }),
+  caseConfidence: (id: number) =>
+    req<{ history: { hypothesis_id: number; title: string; support_score: number;
+                     contradiction_score: number; completeness: number;
+                     confidence_band: string; trigger: string }[] }>(
+      `/api/cases/${id}/confidence-history`),
+  caseSimilar: (id: number) =>
+    req<{ cases: { id: number; title: string; status: string; category: string;
+                   similarity: number }[]; note: string | null }>(
+      `/api/cases/${id}/similar-cases`),
+  caseAssumptions: (id: number) =>
+    req<{ assumptions: { id: number; text: string; status: string }[] }>(
+      `/api/cases/${id}/assumptions`),
+  caseAssumptionStatus: (id: number, aid: number, status: string) =>
+    req<{ id: number; status: string }>(`/api/cases/${id}/assumptions/${aid}`, {
+      method: "PATCH", body: JSON.stringify({ status }) }),
+  caseConflicts: (id: number) =>
+    req<{ conflicts: { id: number; evidence_a_id: number; evidence_b_id: number;
+                       description: string; recommendation: string; status: string }[];
+          new?: number }>(`/api/cases/${id}/conflicts`),
+  caseConflictsRefresh: (id: number) =>
+    req<{ conflicts: { id: number; description: string; status: string }[]; new: number }>(
+      `/api/cases/${id}/conflicts/refresh`, { method: "POST" }),
+  caseConflictStatus: (id: number, cid: number, status: string) =>
+    req<{ id: number; status: string }>(`/api/cases/${id}/conflicts/${cid}`, {
+      method: "PATCH", body: JSON.stringify({ status }) }),
+  caseHealth: (id: number) =>
+    req<{ coverage: number; quality: number; separation: number; freshness: number;
+          reliability: number; critical_gaps: number; overall: number;
+          readiness: string }>(`/api/cases/${id}/health`),
+  caseReadiness: (id: number) =>
+    req<{ ready: boolean; state: string; reasons: string[] }>(
+      `/api/cases/${id}/readiness`),
+  caseCopilot: (id: number, question: string) =>
+    req<{ answer: string; references: { id: number; title: string; type: string }[];
+          grounded: boolean }>(`/api/cases/${id}/copilot`, {
+      method: "POST", body: JSON.stringify({ question }) }),
+  caseTimeline: (id: number) =>
+    req<{ events: { action: string; detail: Record<string, unknown>;
+                    user_id: number | null; created_at: string }[];
+          total: number }>(`/api/cases/${id}/timeline`),
 };

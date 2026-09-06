@@ -114,3 +114,20 @@ AI workbench — Stage 5 (`routers/ai.py`, `ai/`, `agents/`):
   504 timeout, 429 limited, 413 oversize).
 - `POST /.../messages/stream` → SSE (start/token/error/done frames).
 - `GET /api/ai/runs/{id}` (run + tool runs) · `POST /{id}/cancel`.
+
+Stage 7 case management (`routers/cases.py`, `routers/hypotheses.py`,
+`investigation/` engines) under `/api/cases`:
+
+- Workspaces: `GET/POST /api/cases/workspaces`.
+- Cases: `POST/GET /api/cases`, `GET/PATCH /api/cases/{id}`,
+  `POST /{id}/status` (legal transitions; READY gate enforced).
+- Evidence: `POST/GET /{id}/evidence` (+`/{eid}`, `PATCH`, `/archive`;
+  `link_existing` snapshots documents/datasets/images/RAG chunks).
+- Hypotheses: `POST/GET`, `POST /hypotheses/generate`, `PATCH` status,
+  `/links` POST/DELETE, `POST /rescore`.
+- `GET /{id}/evidence-graph` (dynamic nodes/edges), `POST /relations`.
+- `GET /{id}/missing-evidence`, `GET /next-best-evidence` (persisted),
+  `PATCH /recommendations/{rid}`, `POST /simulate`.
+- `GET /confidence-history`, `/similar-cases`, `/assumptions` (+PATCH),
+  `/conflicts` (+`/refresh`, PATCH), `/health`, `/readiness`,
+  `POST /copilot`, `GET /timeline`.

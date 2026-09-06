@@ -6,7 +6,8 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from .core.config import get_settings
 from .db import init_db
-from .routers import ai, auth, company, documents, equipment, knowledge, system
+from .routers import ai, auth, cases, company, documents, equipment, knowledge, system
+from .routers import hypotheses as hypotheses_router
 from .routers import investigations as investigations_router
 from .routers import sensors as sensors_router
 from .routers import vision as vision_router
@@ -41,6 +42,8 @@ app.add_middleware(
 
 app.include_router(auth.router)
 app.include_router(ai.router)
+app.include_router(cases.router)
+app.include_router(hypotheses_router.router)
 app.include_router(company.router)
 app.include_router(documents.router)
 app.include_router(knowledge.router)

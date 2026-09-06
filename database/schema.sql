@@ -297,3 +297,154 @@ CREATE TABLE IF NOT EXISTS ai_tool_runs (
   created_at  TEXT NOT NULL DEFAULT (datetime('now'))
 );
 CREATE INDEX IF NOT EXISTS idx_ai_tool_runs_run ON ai_tool_runs(run_id);
+
+-- Stage 7: investigation case management. workspaces are lightweight
+-- company partitions (a "Default" workspace is lazily provisioned per
+-- company; company isolation remains the primary boundary).
+CREATE TABLE IF NOT EXISTS workspaces (
+  id          INTEGER PRIMARY KEY AUTOINCREMENT,
+  company_id  INTEGER NOT NULL REFERENCES companies(id),
+  name        TEXT NOT NULL,
+  created_at  TEXT NOT NULL DEFAULT (datetime('now')),
+  UNIQUE(company_id, name)
+);
+CREATE INDEX IF NOT EXISTS idx_workspaces_company ON workspaces(company_id);
+
+CREATE TABLE IF NOT EXISTS investigations (
+  id                INTEGER PRIMARY KEY AUTOINCREMENT,
+  company_id        INTEGER NOT NULL REFERENCES companies(id),
+  workspace_id      INTEGER REFERENCES workspaces(id),
+  equipment_id      INTEGER NOT NULL REFERENCES equipment(id),
+  title             TEXT NOT NULL,
+  problem_statement TEXT NOT NULL,
+  category          TEXT NOT NULL DEFAULT 'UNKNOWN',
+  severity          TEXT NOT NULL DEFAULT 'MEDIUM',
+  priority          INTEGER NOT NULL DEFAULT 3,
+  status            TEXT NOT NULL DEFAULT 'DRAFT',
+  created_by        INTEGER REFERENCES users(id),
+  assigned_to       INTEGER REFERENCES users(id),
+  created_at        TEXT NOT NULL DEFAULT (datetime('now')),
+  updated_at        TEXT NOT NULL DEFAULT (datetime('now')),
+  closed_at         TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_investigations_company ON investigations(company_id);
+CREATE INDEX IF NOT EXISTS idx_investigations_equipment ON investigations(equipment_id);
+CREATE INDEX IF NOT EXISTS idx_investigations_status ON investigations(company_id, status);
+
+CREATE TABLE IF NOT EXISTS evidence (
+  id              INTEGER PRIMARY KEY AUTOINCREMENT,
+  investigation_id INTEGER NOT NULL REFERENCES investigations(id),
+  company_id      INTEGER NOT NULL REFERENCES companies(id),
+  equipment_id    INTEGER REFERENCES equipment(id),
+  type            TEXT NOT NULL,
+  source          TEXT NOT NULL DEFAULT '',
+  title           TEXT NOT NULL,
+  description     TEXT NOT NULL DEFAULT '',
+  content         TEXT NOT NULL DEFAULT '',
+  confidence      REAL,
+  reliability     REAL,
+  timestamp       TEXT,
+  created_by      INTEGER REFERENCES users(id),
+  metadata        TEXT NOT NULL DEFAULT '{}',
+  provenance      TEXT NOT NULL DEFAULT '{}',
+  is_active       INTEGER NOT NULL DEFAULT 1,
+  created_at      TEXT NOT NULL DEFAULT (datetime('now'))
+);
+CREATE INDEX IF NOT EXISTS idx_evidence_investigation ON evidence(investigation_id);
+CREATE INDEX IF NOT EXISTS idx_evidence_company ON evidence(company_id);
+
+CREATE TABLE IF NOT EXISTS hypotheses (
+  id               INTEGER PRIMARY KEY AUTOINCREMENT,
+  investigation_id INTEGER NOT NULL REFERENCES investigations(id),
+  company_id       INTEGER NOT NULL REFERENCES companies(id),
+  title            TEXT NOT NULL,
+  description      TEXT NOT NULL DEFAULT '',
+  category         TEXT NOT NULL DEFAULT 'UNKNOWN',
+  status           TEXT NOT NULL DEFAULT 'ACTIVE',
+  created_by       INTEGER REFERENCES users(id),
+  created_at       TEXT NOT NULL DEFAULT (datetime('now')),
+  updated_at       TEXT NOT NULL DEFAULT (datetime('now'))
+);
+CREATE INDEX IF NOT EXISTS idx_hypotheses_investigation ON hypotheses(investigation_id);
+
+CREATE TABLE IF NOT EXISTS evidence_links (
+  id            INTEGER PRIMARY KEY AUTOINCREMENT,
+  hypothesis_id INTEGER NOT NULL REFERENCES hypotheses(id),
+  evidence_id   INTEGER NOT NULL REFERENCES evidence(id),
+  relation      TEXT NOT NULL,
+  weight        REAL NOT NULL DEFAULT 1.0,
+  created_by    INTEGER REFERENCES users(id),
+  created_at    TEXT NOT NULL DEFAULT (datetime('now')),
+  UNIQUE(hypothesis_id, evidence_id)
+);
+CREATE INDEX IF NOT EXISTS idx_evidence_links_hyp ON evidence_links(hypothesis_id);
+CREATE INDEX IF NOT EXISTS idx_evidence_links_ev ON evidence_links(evidence_id);
+
+CREATE TABLE IF NOT EXISTS evidence_relations (
+  id          INTEGER PRIMARY KEY AUTOINCREMENT,
+  company_id  INTEGER NOT NULL REFERENCES companies(id),
+  from_type   TEXT NOT NULL,
+  from_id     INTEGER NOT NULL,
+  to_type     TEXT NOT NULL,
+  to_id       INTEGER NOT NULL,
+  relation    TEXT NOT NULL,
+  created_by  INTEGER REFERENCES users(id),
+  created_at  TEXT NOT NULL DEFAULT (datetime('now'))
+);
+CREATE INDEX IF NOT EXISTS idx_evidence_relations_from
+  ON evidence_relations(company_id, from_type, from_id);
+
+CREATE TABLE IF NOT EXISTS hypothesis_scores (
+  id              INTEGER PRIMARY KEY AUTOINCREMENT,
+  hypothesis_id   INTEGER NOT NULL REFERENCES hypotheses(id),
+  support_score   REAL NOT NULL,
+  contradiction_score REAL NOT NULL,
+  completeness    REAL NOT NULL,
+  confidence_band TEXT NOT NULL,
+  trigger         TEXT NOT NULL DEFAULT 'manual',
+  created_at      TEXT NOT NULL DEFAULT (datetime('now'))
+);
+CREATE INDEX IF NOT EXISTS idx_hypothesis_scores_hyp ON hypothesis_scores(hypothesis_id);
+
+CREATE TABLE IF NOT EXISTS evidence_recommendations (
+  id              INTEGER PRIMARY KEY AUTOINCREMENT,
+  investigation_id INTEGER NOT NULL REFERENCES investigations(id),
+  company_id      INTEGER NOT NULL REFERENCES companies(id),
+  rank            INTEGER NOT NULL,
+  kind            TEXT NOT NULL,
+  slot            TEXT NOT NULL DEFAULT '',
+  title           TEXT NOT NULL,
+  rationale       TEXT NOT NULL DEFAULT '{}',
+  expected_value  TEXT NOT NULL DEFAULT 'MEDIUM',
+  priority        TEXT NOT NULL DEFAULT 'MEDIUM',
+  effort          TEXT NOT NULL DEFAULT 'MEDIUM',
+  safety          TEXT NOT NULL DEFAULT 'LOW',
+  status          TEXT NOT NULL DEFAULT 'PENDING',
+  created_at      TEXT NOT NULL DEFAULT (datetime('now'))
+);
+CREATE INDEX IF NOT EXISTS idx_evidence_recs_inv ON evidence_recommendations(investigation_id);
+
+CREATE TABLE IF NOT EXISTS assumptions (
+  id               INTEGER PRIMARY KEY AUTOINCREMENT,
+  investigation_id INTEGER NOT NULL REFERENCES investigations(id),
+  company_id       INTEGER NOT NULL REFERENCES companies(id),
+  text             TEXT NOT NULL,
+  status           TEXT NOT NULL DEFAULT 'UNVERIFIED',
+  created_by       INTEGER REFERENCES users(id),
+  created_at       TEXT NOT NULL DEFAULT (datetime('now')),
+  updated_at       TEXT NOT NULL DEFAULT (datetime('now'))
+);
+CREATE INDEX IF NOT EXISTS idx_assumptions_inv ON assumptions(investigation_id);
+
+CREATE TABLE IF NOT EXISTS conflicts (
+  id               INTEGER PRIMARY KEY AUTOINCREMENT,
+  investigation_id INTEGER NOT NULL REFERENCES investigations(id),
+  company_id       INTEGER NOT NULL REFERENCES companies(id),
+  evidence_a_id    INTEGER NOT NULL REFERENCES evidence(id),
+  evidence_b_id    INTEGER NOT NULL REFERENCES evidence(id),
+  description      TEXT NOT NULL,
+  recommendation   TEXT NOT NULL DEFAULT '',
+  status           TEXT NOT NULL DEFAULT 'OPEN',
+  created_at       TEXT NOT NULL DEFAULT (datetime('now'))
+);
+CREATE INDEX IF NOT EXISTS idx_conflicts_inv ON conflicts(investigation_id);

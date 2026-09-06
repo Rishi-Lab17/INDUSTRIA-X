@@ -1,6 +1,14 @@
-# Testing (Stages 1–6)
+# Testing (Stages 1-7)
 
-Run from the root: `python -m pytest tests/ -v` (105+ tests, all passing).
+Run from the root: `python -m pytest tests/ -v` (134 tests: 105 prior + 29 new, all passing).
+
+`tests/test_stage7_cases.py` (29 tests): scoring units, missing/NBE/what-if math,
+similarity, generation rules, case CRUD + transitions + readiness gate,
+workspaces, evidence CRUD + link_existing provenance + RBAC + isolation,
+hypotheses + links + rescore + history, dynamic graph + manual relations,
+NBE persistence, simulation deltas, assumptions, conflicts, health,
+copilot branches, prompt-injection-as-data, AI-offline honesty, timeline +
+audit entity refs, similar cases, rate limiting.
 
 `tests/test_stage1_auth.py` (5 tests): full register→verify→login→me→logout→
 revoked flow (OTP read from the fake provider's server-side record, never the
