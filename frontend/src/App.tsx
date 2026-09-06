@@ -20,6 +20,10 @@ import VisionIntel from "./pages/VisionIntel";
 import Multimodal from "./pages/Multimodal";
 import Investigations from "./pages/Investigations";
 import InvestigationDetail from "./pages/InvestigationDetail";
+import Verifications from "./pages/Verifications";
+import VerificationDetail from "./pages/VerificationDetail";
+import SafetyCenter from "./pages/SafetyCenter";
+import ApprovalInbox from "./pages/ApprovalInbox";
 import Stub from "./pages/Stub";
 import type { JSX } from "react";
 
@@ -56,6 +60,10 @@ export default function App() {
             <Route path="multimodal" element={<Multimodal />} />
             <Route path="investigations" element={<Investigations />} />
             <Route path="investigations/:id" element={<InvestigationDetail />} />
+            <Route path="verifications" element={<Verifications />} />
+            <Route path="verifications/:id" element={<VerificationDetail />} />
+            <Route path="safety-center" element={<SafetyCenter />} />
+            <Route path="approvals" element={<ApprovalInbox />} />
             <Route path="evidence" element={<Stub title="Evidence Center" stage="Stage 7" desc="Structured evidence cards and evidence graph." />} />
             <Route path="audit" element={<Stub title="Audit Trail" stage="Stage 9" desc="Searchable audit log of every important action." />} />
             <Route path="sovereignty" element={<Stub title="Sovereignty Center" stage="Stage 9" desc="Live local-processing guarantees and service status." />} />

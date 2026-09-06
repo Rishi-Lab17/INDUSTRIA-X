@@ -447,4 +447,299 @@ CREATE TABLE IF NOT EXISTS conflicts (
   status           TEXT NOT NULL DEFAULT 'OPEN',
   created_at       TEXT NOT NULL DEFAULT (datetime('now'))
 );
-CREATE INDEX IF NOT EXISTS idx_conflicts_inv ON conflicts(investigation_id);
+  CREATE INDEX IF NOT EXISTS idx_conflicts_inv ON conflicts(investigation_id);
+
+  -- Stage 8: verification + safety gate + technician workflow + human approval.
+  -- Every record carries company_id; tenant derived from session only.
+
+  -- VerificationCase: formal verification request linked to a Stage 7 investigation.
+  CREATE TABLE IF NOT EXISTS verifications (
+    id                  INTEGER PRIMARY KEY AUTOINCREMENT,
+    investigation_id    INTEGER NOT NULL REFERENCES investigations(id),
+    company_id          INTEGER NOT NULL REFERENCES companies(id),
+    workspace_id        INTEGER REFERENCES workspaces(id),
+    equipment_id        INTEGER NOT NULL REFERENCES equipment(id),
+    assigned_technician_id INTEGER REFERENCES users(id),
+    assigned_reviewer_id   INTEGER REFERENCES users(id),
+    status              TEXT NOT NULL DEFAULT 'PENDING'
+      CHECK (status IN ('PENDING','ASSIGNED','IN_REVIEW','INSPECTION_REQUIRED',
+                        'AWAITING_EVIDENCE','SAFETY_REVIEW','AWAITING_APPROVAL',
+                        'APPROVED','REJECTED','ESCALATED','BLOCKED',
+                        'CANCELLED','COMPLETED')),
+    priority            TEXT NOT NULL DEFAULT 'MEDIUM'
+      CHECK (priority IN ('LOW','MEDIUM','HIGH','CRITICAL')),
+    reason              TEXT NOT NULL DEFAULT '',
+    instructions        TEXT NOT NULL DEFAULT '',
+    safety_requirements TEXT NOT NULL DEFAULT '',
+    due_at              TEXT,
+    started_at          TEXT,
+    completed_at        TEXT,
+    created_at          TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_at          TEXT NOT NULL DEFAULT (datetime('now')),
+    UNIQUE(investigation_id)
+  );
+  CREATE INDEX IF NOT EXISTS idx_verifications_company ON verifications(company_id);
+  CREATE INDEX IF NOT EXISTS idx_verifications_investigation ON verifications(investigation_id);
+  CREATE INDEX IF NOT EXISTS idx_verifications_status ON verifications(company_id, status);
+
+  -- Verification assignment history (tracks all assignment changes).
+  CREATE TABLE IF NOT EXISTS verification_assignments (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    verification_id INTEGER NOT NULL REFERENCES verifications(id),
+    company_id      INTEGER NOT NULL REFERENCES companies(id),
+    role            TEXT NOT NULL CHECK (role IN ('TECHNICIAN','REVIEWER')),
+    assigned_to     INTEGER NOT NULL REFERENCES users(id),
+    assigned_by     INTEGER REFERENCES users(id),
+    assigned_at     TEXT NOT NULL DEFAULT (datetime('now')),
+    note            TEXT NOT NULL DEFAULT ''
+  );
+  CREATE INDEX IF NOT EXISTS idx_va_verification ON verification_assignments(verification_id);
+
+  -- Evidence verification: technician confirms/rejects individual evidence items.
+  CREATE TABLE IF NOT EXISTS evidence_verifications (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    verification_id INTEGER NOT NULL REFERENCES verifications(id),
+    company_id      INTEGER NOT NULL REFERENCES companies(id),
+    evidence_id     INTEGER NOT NULL REFERENCES evidence(id),
+    verified_by     INTEGER NOT NULL REFERENCES users(id),
+    status          TEXT NOT NULL CHECK (status IN ('VERIFIED','REJECTED','UNABLE_TO_VERIFY','CONTRADICTED','NOT_APPLICABLE')),
+    comment         TEXT NOT NULL DEFAULT '',
+    measurement     TEXT NOT NULL DEFAULT '',
+    attachment      TEXT NOT NULL DEFAULT '',
+    created_at      TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+  CREATE INDEX IF NOT EXISTS idx_ev_verification ON evidence_verifications(verification_id);
+  CREATE INDEX IF NOT EXISTS idx_ev_evidence ON evidence_verifications(evidence_id);
+
+  -- Technician observations: first-class evidence from inspection.
+  CREATE TABLE IF NOT EXISTS technician_observations (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    verification_id INTEGER NOT NULL REFERENCES verifications(id),
+    company_id      INTEGER NOT NULL REFERENCES companies(id),
+    equipment_id    INTEGER NOT NULL REFERENCES equipment(id),
+    technician_id   INTEGER NOT NULL REFERENCES users(id),
+    observation_type TEXT NOT NULL CHECK (observation_type IN ('VISUAL','AUDITORY','MEASUREMENT','MECHANICAL','ELECTRICAL','THERMAL','PROCESS','SAFETY','OTHER')),
+    description     TEXT NOT NULL,
+    severity        TEXT NOT NULL DEFAULT 'NORMAL'
+      CHECK (severity IN ('NORMAL','MINOR','MODERATE','SEVERE','CRITICAL')),
+    observed_at     TEXT,
+    created_at      TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_at      TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+  CREATE INDEX IF NOT EXISTS idx_to_verification ON technician_observations(verification_id);
+  CREATE INDEX IF NOT EXISTS idx_to_equipment ON technician_observations(equipment_id);
+
+  -- Technician measurements: structured numeric readings.
+  CREATE TABLE IF NOT EXISTS technician_measurements (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    verification_id INTEGER NOT NULL REFERENCES verifications(id),
+    company_id      INTEGER NOT NULL REFERENCES companies(id),
+    equipment_id    INTEGER NOT NULL REFERENCES equipment(id),
+    technician_id   INTEGER NOT NULL REFERENCES users(id),
+    parameter       TEXT NOT NULL,
+    value           REAL NOT NULL,
+    unit            TEXT NOT NULL,
+    instrument_id   TEXT NOT NULL DEFAULT '',
+    instrument_type TEXT NOT NULL DEFAULT '',
+    calibration_status TEXT NOT NULL DEFAULT 'UNKNOWN'
+      CHECK (calibration_status IN ('VALID','EXPIRED','UNKNOWN')),
+    calibration_date TEXT,
+    calibration_expiry TEXT,
+    notes           TEXT NOT NULL DEFAULT '',
+    recorded_at     TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+  CREATE INDEX IF NOT EXISTS idx_tm_verification ON technician_measurements(verification_id);
+
+  -- Inspection checklists: configurable per equipment type/failure category.
+  CREATE TABLE IF NOT EXISTS inspection_checklists (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    verification_id INTEGER NOT NULL REFERENCES verifications(id),
+    company_id      INTEGER NOT NULL REFERENCES companies(id),
+    template_key    TEXT NOT NULL DEFAULT '',
+    title           TEXT NOT NULL,
+    created_by      INTEGER REFERENCES users(id),
+    created_at      TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+  CREATE INDEX IF NOT EXISTS idx_ic_verification ON inspection_checklists(verification_id);
+
+  CREATE TABLE IF NOT EXISTS checklist_items (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    checklist_id    INTEGER NOT NULL REFERENCES inspection_checklists(id),
+    description     TEXT NOT NULL,
+    required        INTEGER NOT NULL DEFAULT 0,
+    status          TEXT NOT NULL DEFAULT 'PENDING'
+      CHECK (status IN ('PENDING','PASS','FAIL','SKIPPED')),
+    completed_by    INTEGER REFERENCES users(id),
+    completed_at    TEXT,
+    comment         TEXT NOT NULL DEFAULT ''
+  );
+  CREATE INDEX IF NOT EXISTS idx_ci_checklist ON checklist_items(checklist_id);
+
+  -- Safety assessment: risk evaluation per verification.
+  CREATE TABLE IF NOT EXISTS safety_assessments (
+    id                  INTEGER PRIMARY KEY AUTOINCREMENT,
+    verification_id     INTEGER NOT NULL REFERENCES verifications(id),
+    company_id          INTEGER NOT NULL REFERENCES companies(id),
+    risk_level          TEXT NOT NULL DEFAULT 'LOW'
+      CHECK (risk_level IN ('LOW','MEDIUM','HIGH','CRITICAL')),
+    likelihood          INTEGER NOT NULL DEFAULT 1 CHECK (likelihood BETWEEN 1 AND 5),
+    impact              INTEGER NOT NULL DEFAULT 1 CHECK (impact BETWEEN 1 AND 5),
+    assessor            INTEGER REFERENCES users(id),
+    assessed_at         TEXT NOT NULL DEFAULT (datetime('now')),
+    notes               TEXT NOT NULL DEFAULT '',
+    created_at          TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+  CREATE INDEX IF NOT EXISTS idx_sa_verification ON safety_assessments(verification_id);
+
+  -- Hazards within a safety assessment.
+  CREATE TABLE IF NOT EXISTS hazards (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    safety_assessment_id INTEGER NOT NULL REFERENCES safety_assessments(id),
+    company_id      INTEGER NOT NULL REFERENCES companies(id),
+    hazard_type     TEXT NOT NULL CHECK (hazard_type IN ('ROTATING_EQUIPMENT','ELECTRICAL','THERMAL','PRESSURE','CHEMICAL','CONFINED_SPACE','FIRE','OTHER')),
+    severity        TEXT NOT NULL DEFAULT 'MEDIUM'
+      CHECK (severity IN ('LOW','MEDIUM','HIGH','CRITICAL')),
+    likelihood      INTEGER NOT NULL DEFAULT 1 CHECK (likelihood BETWEEN 1 AND 5),
+    control         TEXT NOT NULL DEFAULT '',
+    status          TEXT NOT NULL DEFAULT 'OPEN'
+      CHECK (status IN ('OPEN','CONTROLLED','CLOSED')),
+    owner           TEXT NOT NULL DEFAULT '',
+    created_at      TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+  CREATE INDEX IF NOT EXISTS idx_hazards_safety ON hazards(safety_assessment_id);
+
+  -- Safety controls associated with a safety assessment.
+  CREATE TABLE IF NOT EXISTS safety_controls (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    safety_assessment_id INTEGER NOT NULL REFERENCES safety_assessments(id),
+    company_id      INTEGER NOT NULL REFERENCES companies(id),
+    control_type    TEXT NOT NULL,
+    description     TEXT NOT NULL,
+    required        INTEGER NOT NULL DEFAULT 1,
+    status          TEXT NOT NULL DEFAULT 'PENDING'
+      CHECK (status IN ('PENDING','ACTIVE','VERIFIED','EXPIRED')),
+    created_at      TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+  CREATE INDEX IF NOT EXISTS idx_sc_safety ON safety_controls(safety_assessment_id);
+
+  -- Isolation / LOTO-style confirmation (workflow recording only, NOT physical control).
+  CREATE TABLE IF NOT EXISTS isolation_records (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    verification_id INTEGER NOT NULL REFERENCES verifications(id),
+    company_id      INTEGER NOT NULL REFERENCES companies(id),
+    isolation_required INTEGER NOT NULL DEFAULT 0,
+    isolation_confirmed INTEGER NOT NULL DEFAULT 0,
+    confirmed_by    INTEGER REFERENCES users(id),
+    confirmed_at    TEXT,
+    method          TEXT NOT NULL DEFAULT '',
+    notes           TEXT NOT NULL DEFAULT '',
+    created_at      TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+  CREATE INDEX IF NOT EXISTS idx_ir_verification ON isolation_records(verification_id);
+
+  -- Digital permit record.
+  CREATE TABLE IF NOT EXISTS permits (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    verification_id INTEGER NOT NULL REFERENCES verifications(id),
+    company_id      INTEGER NOT NULL REFERENCES companies(id),
+    permit_id       TEXT NOT NULL,
+    equipment_id    INTEGER NOT NULL REFERENCES equipment(id),
+    requested_by    INTEGER NOT NULL REFERENCES users(id),
+    authorized_by   INTEGER REFERENCES users(id),
+    start_time      TEXT NOT NULL,
+    expiry_time     TEXT NOT NULL,
+    hazards         TEXT NOT NULL DEFAULT '',
+    controls        TEXT NOT NULL DEFAULT '',
+    status          TEXT NOT NULL DEFAULT 'DRAFT'
+      CHECK (status IN ('DRAFT','REQUESTED','APPROVED','ACTIVE','EXPIRED','CANCELLED')),
+    created_at      TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+  CREATE UNIQUE INDEX IF NOT EXISTS idx_permits_verification ON permits(verification_id);
+  CREATE INDEX IF NOT EXISTS idx_permits_company ON permits(company_id);
+
+  -- Approval workflow: human decisions on verifications.
+  CREATE TABLE IF NOT EXISTS approvals (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    verification_id INTEGER NOT NULL REFERENCES verifications(id),
+    company_id      INTEGER NOT NULL REFERENCES companies(id),
+    requested_by    INTEGER NOT NULL REFERENCES users(id),
+    approver_id     INTEGER REFERENCES users(id),
+    approval_level  TEXT NOT NULL DEFAULT 'TECHNICIAN'
+      CHECK (approval_level IN ('TECHNICIAN','TECHNICIAN_REVIEWER','SUPERVISOR','SAFETY_OFFICER')),
+    status          TEXT NOT NULL DEFAULT 'PENDING'
+      CHECK (status IN ('PENDING','APPROVED','REJECTED','REQUEST_MORE_EVIDENCE','ESCALATED','DEFERRED','INVALIDATED','STALE')),
+    reason          TEXT NOT NULL DEFAULT '',
+    comment         TEXT NOT NULL DEFAULT '',
+    justification   TEXT NOT NULL DEFAULT '',
+    requested_at    TEXT NOT NULL DEFAULT (datetime('now')),
+    decided_at      TEXT,
+    expires_at      TEXT,
+    created_at      TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_at      TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+  CREATE INDEX IF NOT EXISTS idx_approvals_verification ON approvals(verification_id);
+  CREATE INDEX IF NOT EXISTS idx_approvals_company ON approvals(company_id);
+
+  -- Immutable decision history (append-only; never overwrite).
+  CREATE TABLE IF NOT EXISTS approval_decisions (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    approval_id     INTEGER NOT NULL REFERENCES approvals(id),
+    company_id      INTEGER NOT NULL REFERENCES companies(id),
+    decision        TEXT NOT NULL CHECK (decision IN ('APPROVE','REJECT','REQUEST_MORE_EVIDENCE','ESCALATE','DEFER')),
+    actor           INTEGER NOT NULL REFERENCES users(id),
+    actor_role      TEXT NOT NULL,
+    reason          TEXT NOT NULL DEFAULT '',
+    comment         TEXT NOT NULL DEFAULT '',
+    evidence_snapshot TEXT NOT NULL DEFAULT '{}',
+    safety_snapshot TEXT NOT NULL DEFAULT '{}',
+    hypothesis_snapshot TEXT NOT NULL DEFAULT '[]',
+    created_at      TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+  CREATE INDEX IF NOT EXISTS idx_ad_approval ON approval_decisions(approval_id);
+
+  -- Escalation tracking.
+  CREATE TABLE IF NOT EXISTS escalations (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    verification_id INTEGER NOT NULL REFERENCES verifications(id),
+    company_id      INTEGER NOT NULL REFERENCES companies(id),
+    escalated_by    INTEGER NOT NULL REFERENCES users(id),
+    escalated_to    INTEGER NOT NULL REFERENCES users(id),
+    reason          TEXT NOT NULL,
+    status          TEXT NOT NULL DEFAULT 'OPEN'
+      CHECK (status IN ('OPEN','RESOLVED','CANCELLED')),
+    created_at      TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+  CREATE INDEX IF NOT EXISTS idx_escalation_verification ON escalations(verification_id);
+
+  -- Safety gate evaluation results (backend-enforced blocking control).
+  CREATE TABLE IF NOT EXISTS safety_gate_results (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    verification_id INTEGER NOT NULL REFERENCES verifications(id),
+    company_id      INTEGER NOT NULL REFERENCES companies(id),
+    blocked         INTEGER NOT NULL DEFAULT 0,
+    risk_level      TEXT NOT NULL DEFAULT 'LOW',
+    reasons         TEXT NOT NULL DEFAULT '[]',
+    missing_checklist TEXT NOT NULL DEFAULT '[]',
+    missing_evidence TEXT NOT NULL DEFAULT '[]',
+    missing_permit  INTEGER NOT NULL DEFAULT 0,
+    missing_isolation INTEGER NOT NULL DEFAULT 0,
+    evaluated_at    TEXT NOT NULL DEFAULT (datetime('now')),
+    evaluated_by    INTEGER REFERENCES users(id)
+  );
+  CREATE UNIQUE INDEX IF NOT EXISTS idx_sgr_verification ON safety_gate_results(verification_id);
+
+  -- Verification scorecard (computed snapshot for decision readiness).
+  CREATE TABLE IF NOT EXISTS verification_scorecards (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    verification_id INTEGER NOT NULL REFERENCES verifications(id),
+    company_id      INTEGER NOT NULL REFERENCES companies(id),
+    evidence_coverage REAL NOT NULL DEFAULT 0,
+    evidence_quality REAL NOT NULL DEFAULT 0,
+    technician_verification REAL NOT NULL DEFAULT 0,
+    safety_readiness REAL NOT NULL DEFAULT 0,
+    hypothesis_confidence REAL NOT NULL DEFAULT 0,
+    critical_conflicts INTEGER NOT NULL DEFAULT 0,
+    approval_readiness TEXT NOT NULL DEFAULT 'NOT_READY',
+    evaluated_at    TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+  CREATE UNIQUE INDEX IF NOT EXISTS idx_vs_verification ON verification_scorecards(verification_id);

@@ -11,6 +11,7 @@ from .routers import hypotheses as hypotheses_router
 from .routers import investigations as investigations_router
 from .routers import sensors as sensors_router
 from .routers import vision as vision_router
+from .verification import router as verification_router
 
 
 @asynccontextmanager
@@ -52,6 +53,7 @@ app.include_router(vision_router.router)
 app.include_router(investigations_router.router)
 app.include_router(equipment.router)
 app.include_router(system.router)
+app.include_router(verification_router)
 
 
 @app.get("/")

@@ -700,4 +700,93 @@ export const api = {
     req<{ events: { action: string; detail: Record<string, unknown>;
                     user_id: number | null; created_at: string }[];
           total: number }>(`/api/cases/${id}/timeline`),
+  // Stage 8: verification + safety gate + technician workflow + human approval
+  verificationList: (params: Record<string, string | number | undefined> = {}) => {
+    const q = Object.entries(params)
+      .filter(([, v]) => v !== undefined && v !== "")
+      .map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(String(v))}`)
+      .join("&");
+    return req<{ verifications: Record<string, unknown>[]; total: number; page: number; page_size: number }>(
+      `/api/verifications${q ? `?${q}` : ""}`);
+  },
+  verificationCreate: (b: Record<string, unknown>) =>
+    req<Record<string, unknown>>("/api/verifications", {
+      method: "POST", body: JSON.stringify(b) }),
+  verificationGet: (id: number) =>
+    req<Record<string, unknown>>(`/api/verifications/${id}`),
+  verificationUpdateStatus: (id: number, status: string) =>
+    req<Record<string, unknown>>(`/api/verifications/${id}/status`, {
+      method: "PATCH", body: JSON.stringify({ status }) }),
+  verificationAssign: (id: number, b: Record<string, unknown>) =>
+    req<Record<string, unknown>>(`/api/verifications/${id}/assign`, {
+      method: "POST", body: JSON.stringify(b) }),
+  verificationAssignReviewer: (id: number, b: Record<string, unknown>) =>
+    req<Record<string, unknown>>(`/api/verifications/${id}/reviewer`, {
+      method: "POST", body: JSON.stringify(b) }),
+  verificationStart: (id: number) =>
+    req<Record<string, unknown>>(`/api/verifications/${id}/start`, {
+      method: "POST" }),
+  verificationVerifyEvidence: (id: number, b: Record<string, unknown>) =>
+    req<Record<string, unknown>>(`/api/verifications/${id}/evidence-verify`, {
+      method: "POST", body: JSON.stringify(b) }),
+  verificationAddObservation: (id: number, b: Record<string, unknown>) =>
+    req<Record<string, unknown>>(`/api/verifications/${id}/observations`, {
+      method: "POST", body: JSON.stringify(b) }),
+  verificationAddMeasurement: (id: number, b: Record<string, unknown>) =>
+    req<Record<string, unknown>>(`/api/verifications/${id}/measurements`, {
+      method: "POST", body: JSON.stringify(b) }),
+  verificationCreateChecklist: (id: number, b: Record<string, unknown>) =>
+    req<Record<string, unknown>>(`/api/verifications/${id}/checklists`, {
+      method: "POST", body: JSON.stringify(b) }),
+  verificationChecklists: (id: number) =>
+    req<Record<string, unknown>>(`/api/verifications/${id}/checklists`),
+  verificationCompleteChecklistItem: (vid: number, cid: number, iid: number, b: Record<string, unknown>) =>
+    req<Record<string, unknown>>(`/api/verifications/${vid}/checklists/${cid}/items/${iid}`, {
+      method: "PATCH", body: JSON.stringify(b) }),
+  verificationCreateSafetyAssessment: (id: number, b: Record<string, unknown>) =>
+    req<Record<string, unknown>>(`/api/verifications/${id}/safety-assessment`, {
+      method: "POST", body: JSON.stringify(b) }),
+  verificationSafety: (id: number) =>
+    req<Record<string, unknown>>(`/api/verifications/${id}/safety`),
+  verificationEvaluateSafetyGate: (id: number) =>
+    req<Record<string, unknown>>(`/api/verifications/${id}/safety-gate/evaluate`, {
+      method: "POST" }),
+  verificationSafetyGate: (id: number) =>
+    req<Record<string, unknown>>(`/api/verifications/${id}/safety-gate`),
+  verificationRequestApproval: (id: number, b: Record<string, unknown>) =>
+    req<Record<string, unknown>>(`/api/verifications/${id}/request-approval`, {
+      method: "POST", body: JSON.stringify(b) }),
+  verificationApprove: (id: number, b: Record<string, unknown>) =>
+    req<Record<string, unknown>>(`/api/verifications/${id}/approve`, {
+      method: "POST", body: JSON.stringify(b) }),
+  verificationReject: (id: number, b: Record<string, unknown>) =>
+    req<Record<string, unknown>>(`/api/verifications/${id}/reject`, {
+      method: "POST", body: JSON.stringify(b) }),
+  verificationEscalate: (id: number, b: Record<string, unknown>) =>
+    req<Record<string, unknown>>(`/api/verifications/${id}/escalate`, {
+      method: "POST", body: JSON.stringify(b) }),
+  verificationCreateIsolation: (id: number, b: Record<string, unknown>) =>
+    req<Record<string, unknown>>(`/api/verifications/${id}/isolation`, {
+      method: "POST", body: JSON.stringify(b) }),
+  verificationCreatePermit: (id: number, b: Record<string, unknown>) =>
+    req<Record<string, unknown>>(`/api/verifications/${id}/permit`, {
+      method: "POST", body: JSON.stringify(b) }),
+  verificationScorecard: (id: number) =>
+    req<Record<string, unknown>>(`/api/verifications/${id}/scorecard`),
+  verificationApprovals: (params: Record<string, string | number | undefined> = {}) => {
+    const q = Object.entries(params)
+      .filter(([, v]) => v !== undefined && v !== "")
+      .map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(String(v))}`)
+      .join("&");
+    return req<{ approvals: Record<string, unknown>[]; total: number }>(
+      `/api/verifications/approvals${q ? `?${q}` : ""}`);
+  },
+  verificationSafetyCenter: () =>
+    req<Record<string, unknown>>("/api/verifications/safety-center"),
+  verificationDashboard: () =>
+    req<Record<string, unknown>>("/api/verifications/dashboard"),
+  verificationDecisions: (id: number) =>
+    req<{ decisions: Record<string, unknown>[] }>(`/api/verifications/${id}/decisions`),
+  verificationEscalations: (id: number) =>
+    req<{ escalations: Record<string, unknown>[] }>(`/api/verifications/${id}/escalations`),
 };

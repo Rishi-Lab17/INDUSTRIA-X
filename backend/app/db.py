@@ -53,6 +53,16 @@ def _migrate(con) -> None:
             ("indexed_checksum", "TEXT")):
         ensure("documents", col, ddl)
 
+    # Stage 8 migrations
+    ensure("investigations", "workspace_id", "INTEGER REFERENCES workspaces(id)")
+    for tbl, col_ddl in [
+        ("verifications", "workspace_id INTEGER REFERENCES workspaces(id)"),
+        ("verifications", "due_at TEXT"),
+        ("verifications", "started_at TEXT"),
+        ("verifications", "completed_at TEXT"),
+    ]:
+        pass  # handled by schema.sql CREATE TABLE IF NOT EXISTS
+
 
 def init_db() -> None:
     schema = SCHEMA_PATH.read_text(encoding="utf-8")

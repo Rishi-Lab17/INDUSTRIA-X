@@ -19,6 +19,7 @@
   on-prem server is connected)
 - Stage 6 — COMPLETE (sensor intelligence + vision intelligence + multimodal investigation; deterministic local analysis, no fake AI)
 - Stage 7 — COMPLETE (multi-hypothesis investigation intelligence + evidence graph + Next-Best-Evidence; deterministic local engines, Kimi OFFLINE honestly)
+- Stage 8 — COMPLETE (verification workflow + safety gate + technician workflow + human approval; separation of duties, backend-enforced safety control, 146 tests)
 
 ## Team Git workflow
 
