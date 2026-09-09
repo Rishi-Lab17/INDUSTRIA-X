@@ -787,6 +787,68 @@ export const api = {
     req<Record<string, unknown>>("/api/verifications/dashboard"),
   verificationDecisions: (id: number) =>
     req<{ decisions: Record<string, unknown>[] }>(`/api/verifications/${id}/decisions`),
-  verificationEscalations: (id: number) =>
-    req<{ escalations: Record<string, unknown>[] }>(`/api/verifications/${id}/escalations`),
+   verificationEscalations: (id: number) =>
+     req<{ escalations: Record<string, unknown>[] }>(`/api/verifications/${id}/escalations`),
+   // Stage 9: case management
+   caseCreate9: (b: Record<string, unknown>) =>
+     req<Record<string, unknown>>("/api/case", { method: "POST", body: JSON.stringify(b) }),
+   caseList9: (params: Record<string, string | number | undefined> = {}) => {
+     const q = Object.entries(params)
+       .filter(([, v]) => v !== undefined && v !== "")
+       .map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(String(v))}`)
+       .join("&");
+     return req<{ cases: Record<string, unknown>[]; total: number; page: number; page_size: number }>(
+       `/api/case${q ? `?${q}` : ""}`);
+   },
+   caseGet9: (id: number) =>
+     req<Record<string, unknown>>(`/api/case/${id}`),
+   casePatch9: (id: number, b: Record<string, unknown>) =>
+     req<Record<string, unknown>>(`/api/case/${id}`, { method: "PATCH", body: JSON.stringify(b) }),
+   caseClose9: (id: number, b: Record<string, unknown>) =>
+     req<Record<string, unknown>>(`/api/case/${id}/close`, { method: "POST", body: JSON.stringify(b) }),
+   caseReopen9: (id: number, b: Record<string, unknown>) =>
+     req<Record<string, unknown>>(`/api/case/${id}/reopen`, { method: "POST", body: JSON.stringify(b) }),
+   caseArchive9: (id: number) =>
+     req<Record<string, unknown>>(`/api/case/${id}/archive`, { method: "POST" }),
+   caseTimeline9: (id: number) =>
+     req<{ events: Record<string, unknown>[] }>(`/api/case/${id}/timeline`),
+   caseActions9: (id: number, b: Record<string, unknown>) =>
+     req<Record<string, unknown>>(`/api/case/${id}/actions`, { method: "POST", body: JSON.stringify(b) }),
+   caseMemory9: (b: Record<string, unknown>) =>
+     req<Record<string, unknown>>("/api/case/memory", { method: "POST", body: JSON.stringify(b) }),
+   caseMemoryFeedback9: (mid: number, b: Record<string, unknown>) =>
+     req<Record<string, unknown>>(`/api/case/memory/${mid}/feedback`, { method: "POST", body: JSON.stringify(b) }),
+   caseMemoryList9: (params: Record<string, string | number | undefined> = {}) => {
+     const q = Object.entries(params)
+       .filter(([, v]) => v !== undefined && v !== "")
+       .map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(String(v))}`)
+       .join("&");
+     return req<{ memories: Record<string, unknown>[]; total: number }>(
+       `/api/case/memory${q ? `?${q}` : ""}`);
+   },
+   caseLineage9: (id: number, b: Record<string, unknown>) =>
+     req<Record<string, unknown>>(`/api/case/${id}/lineage`, { method: "POST", body: JSON.stringify(b) }),
+   caseLineageEdge9: (id: number, b: Record<string, unknown>) =>
+     req<Record<string, unknown>>(`/api/case/${id}/lineage/edge`, { method: "POST", body: JSON.stringify(b) }),
+   caseLineageGet9: (id: number) =>
+     req<Record<string, unknown>>(`/api/case/${id}/lineage`),
+   caseAudit9: (params: Record<string, string | number | undefined> = {}) => {
+     const q = Object.entries(params)
+       .filter(([, v]) => v !== undefined && v !== "")
+       .map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(String(v))}`)
+       .join("&");
+     return req<Record<string, unknown>>(`/api/case/audit${q ? `?${q}` : ""}`);
+   },
+   caseSovereignty9: () =>
+     req<Record<string, unknown>>("/api/case/sovereignty"),
+   caseSovereigntyUpdate9: (b: Record<string, unknown>) =>
+     req<Record<string, unknown>>("/api/case/sovereignty", { method: "PUT", body: JSON.stringify(b) }),
+   caseDashboard9: () =>
+     req<Record<string, unknown>>("/api/case/dashboard"),
+   caseSafetyCenter9: () =>
+     req<Record<string, unknown>>("/api/case/safety-center"),
+   caseReports9: (id: number, b: Record<string, unknown>) =>
+     req<Record<string, unknown>>(`/api/case/${id}/reports`, { method: "POST", body: JSON.stringify(b) }),
+   caseReportsList9: (id: number) =>
+     req<Record<string, unknown>>(`/api/case/${id}/reports`),
 };

@@ -71,8 +71,8 @@ export default function Verifications() {
             <thead><tr><th>Verification</th><th>Equipment</th><th>Priority</th><th>Status</th><th>Updated</th></tr></thead>
             <tbody>
               {items.map((v: Record<string, unknown>) => (
-                <tr key={v.id}>
-                  <td><Link to={`/verifications/${v.id}`}>#{v.id}</Link></td>
+                <tr key={v.id as number}>
+                  <td><Link to={`/verifications/${v.id as number}`}>#{v.id as number}</Link></td>
                   <td style={{ fontSize: 12 }}>{(v.equipment as Record<string, unknown>)?.name as string || "—"}</td>
                   <td><b style={{ color: PRIORITY_COLORS[(v.priority as string) || "MEDIUM"] }}>{(v.priority as string)}</b></td>
                   <td><span className="badge" style={{ background: STATUS_COLORS[(v.status as string) || "PENDING"] }}>{(v.status as string)}</span></td>

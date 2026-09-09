@@ -24,6 +24,14 @@ import Verifications from "./pages/Verifications";
 import VerificationDetail from "./pages/VerificationDetail";
 import SafetyCenter from "./pages/SafetyCenter";
 import ApprovalInbox from "./pages/ApprovalInbox";
+import Cases from "./pages/Cases";
+import CaseDetail from "./pages/CaseDetail";
+import MemoryPage from "./pages/MemoryPage";
+import ReportsPage from "./pages/ReportsPage";
+import LineagePage from "./pages/LineagePage";
+import ReplayPage from "./pages/ReplayPage";
+import CaseAuditPage from "./pages/CaseAuditPage";
+import SovereigntyPage from "./pages/SovereigntyPage";
 import Stub from "./pages/Stub";
 import type { JSX } from "react";
 
@@ -66,8 +74,14 @@ export default function App() {
             <Route path="approvals" element={<ApprovalInbox />} />
             <Route path="evidence" element={<Stub title="Evidence Center" stage="Stage 7" desc="Structured evidence cards and evidence graph." />} />
             <Route path="audit" element={<Stub title="Audit Trail" stage="Stage 9" desc="Searchable audit log of every important action." />} />
-            <Route path="sovereignty" element={<Stub title="Sovereignty Center" stage="Stage 9" desc="Live local-processing guarantees and service status." />} />
-            <Route path="health" element={<Stub title="System Health" stage="Stage 9" desc="Live health of backend, DB, vector DB, Kimi, RAG and engines." />} />
+            <Route path="cases" element={<Cases />} />
+            <Route path="cases/:id" element={<CaseDetail />} />
+            <Route path="memory" element={<MemoryPage />} />
+            <Route path="reports" element={<ReportsPage />} />
+            <Route path="lineage" element={<LineagePage />} />
+            <Route path="replay" element={<ReplayPage />} />
+            <Route path="case-audit" element={<CaseAuditPage />} />
+            <Route path="sovereignty" element={<SovereigntyPage />} />
           </Route>
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>

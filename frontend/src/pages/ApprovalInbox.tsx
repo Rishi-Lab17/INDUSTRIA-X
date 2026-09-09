@@ -33,7 +33,7 @@ export default function ApprovalInbox() {
             <tbody>
               {items.map((a: Record<string, unknown>) => (
                 <tr key={(a.id as number)}>
-                  <td><Link to={`/verifications/${(a.verification_id as number)}`}>#{a.verification_id}</Link></td>
+                  <td><Link to={`/verifications/${(a.verification_id as number)}`}>#{a.verification_id as number}</Link></td>
                   <td style={{ fontSize: 12 }}>{(a.equipment_name as string) || "—"}</td>
                   <td><b>{(a.priority as string)}</b></td>
                   <td>{(a.approval_level as string)}</td>

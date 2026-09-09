@@ -743,3 +743,279 @@ CREATE TABLE IF NOT EXISTS conflicts (
     evaluated_at    TEXT NOT NULL DEFAULT (datetime('now'))
   );
   CREATE UNIQUE INDEX IF NOT EXISTS idx_vs_verification ON verification_scorecards(verification_id);
+
+  -- Stage 9: enterprise case management, reporting, memory, replay, lineage, audit, sovereignty.
+  -- Every record carries company_id; tenant derived from session only.
+
+  -- Case: persistent case management layer around investigation.
+  CREATE TABLE IF NOT EXISTS cases (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    case_number     TEXT NOT NULL,
+    company_id      INTEGER NOT NULL REFERENCES companies(id),
+    workspace_id    INTEGER REFERENCES workspaces(id),
+    investigation_id INTEGER REFERENCES investigations(id),
+    equipment_id    INTEGER NOT NULL REFERENCES equipment(id),
+    title           TEXT NOT NULL,
+    summary         TEXT NOT NULL DEFAULT '',
+    priority        TEXT NOT NULL DEFAULT 'MEDIUM' CHECK (priority IN ('LOW','MEDIUM','HIGH','CRITICAL')),
+    severity        TEXT NOT NULL DEFAULT 'INFORMATIONAL' CHECK (severity IN ('INFORMATIONAL','MINOR','MODERATE','MAJOR','CRITICAL')),
+    status          TEXT NOT NULL DEFAULT 'OPEN' CHECK (status IN ('OPEN','INVESTIGATING','VERIFICATION','SAFETY_REVIEW','AWAITING_APPROVAL','APPROVED','ACTION_IN_PROGRESS','RESOLVED','CLOSED','REOPENED','ARCHIVED')),
+    root_cause      TEXT NOT NULL DEFAULT '',
+    root_cause_confidence TEXT NOT NULL DEFAULT 'UNKNOWN' CHECK (root_cause_confidence IN ('CONFIRMED','PROBABLE','UNKNOWN','DISPUTED')),
+    root_cause_evidence TEXT NOT NULL DEFAULT '[]',
+    resolution_status TEXT NOT NULL DEFAULT 'UNKNOWN' CHECK (resolution_status IN ('RESOLVED','PARTIALLY_RESOLVED','NOT_RESOLVED','UNKNOWN')),
+    resolution_evidence TEXT NOT NULL DEFAULT '',
+    opened_by       INTEGER REFERENCES users(id),
+    closed_by       INTEGER REFERENCES users(id),
+    opened_at       TEXT NOT NULL DEFAULT (datetime('now')),
+    resolved_at     TEXT,
+    closed_at       TEXT,
+    archived_at     TEXT,
+    created_at      TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_at      TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+  CREATE INDEX IF NOT EXISTS idx_cases_company ON cases(company_id);
+  CREATE INDEX IF NOT EXISTS idx_cases_investigation ON cases(investigation_id);
+  CREATE INDEX IF NOT EXISTS idx_cases_equipment ON cases(equipment_id);
+  CREATE INDEX IF NOT EXISTS idx_cases_status ON cases(company_id, status);
+  CREATE INDEX IF NOT EXISTS idx_cases_number ON cases(company_id, case_number);
+
+  -- Case assignment history.
+  CREATE TABLE IF NOT EXISTS case_assignments (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    case_id         INTEGER NOT NULL REFERENCES cases(id),
+    company_id      INTEGER NOT NULL REFERENCES companies(id),
+    role            TEXT NOT NULL CHECK (role IN ('OWNER','INVESTIGATOR','TECHNICIAN','REVIEWER','APPROVER')),
+    assigned_to     INTEGER NOT NULL REFERENCES users(id),
+    assigned_by     INTEGER REFERENCES users(id),
+    assigned_at     TEXT NOT NULL DEFAULT (datetime('now')),
+    note            TEXT NOT NULL DEFAULT ''
+  );
+  CREATE INDEX IF NOT EXISTS idx_ca_case ON case_assignments(case_id);
+
+  -- Corrective/preventive actions.
+  CREATE TABLE IF NOT EXISTS case_actions (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    case_id         INTEGER NOT NULL REFERENCES cases(id),
+    company_id      INTEGER NOT NULL REFERENCES companies(id),
+    action_type     TEXT NOT NULL CHECK (action_type IN ('CORRECTIVE','PREVENTIVE')),
+    description     TEXT NOT NULL,
+    owner           TEXT NOT NULL DEFAULT '',
+    priority        TEXT NOT NULL DEFAULT 'MEDIUM' CHECK (priority IN ('LOW','MEDIUM','HIGH','CRITICAL')),
+    status          TEXT NOT NULL DEFAULT 'OPEN' CHECK (status IN ('OPEN','IN_PROGRESS','COMPLETED','CANCELLED','BLOCKED')),
+    due_at          TEXT,
+    started_at      TEXT,
+    completed_at    TEXT,
+    completion_notes TEXT NOT NULL DEFAULT '',
+    completion_evidence TEXT NOT NULL DEFAULT '',
+    created_at      TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_at      TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+  CREATE INDEX IF NOT EXISTS idx_ca_case ON case_actions(case_id);
+
+  -- Action verification results.
+  CREATE TABLE IF NOT EXISTS case_action_verifications (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    action_id       INTEGER NOT NULL REFERENCES case_actions(id),
+    company_id      INTEGER NOT NULL REFERENCES companies(id),
+    verified_by     INTEGER NOT NULL REFERENCES users(id),
+    result          TEXT NOT NULL CHECK (result IN ('RESOLVED','PARTIALLY_RESOLVED','NOT_RESOLVED','UNKNOWN')),
+    notes           TEXT NOT NULL DEFAULT '',
+    verified_at     TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+  CREATE INDEX IF NOT EXISTS idx_cav_action ON case_action_verifications(action_id);
+
+  -- Case outcome tracking.
+  CREATE TABLE IF NOT EXISTS case_outcomes (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    case_id         INTEGER NOT NULL REFERENCES cases(id),
+    company_id      INTEGER NOT NULL REFERENCES companies(id),
+    outcome         TEXT NOT NULL CHECK (outcome IN ('RESOLVED','PARTIALLY_RESOLVED','NOT_RESOLVED','UNKNOWN')),
+    evidence        TEXT NOT NULL DEFAULT '',
+    verified_by     INTEGER REFERENCES users(id),
+    verified_at     TEXT NOT NULL DEFAULT (datetime('now')),
+    notes           TEXT NOT NULL DEFAULT '',
+    created_at      TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+  CREATE INDEX IF NOT EXISTS idx_co_case ON case_outcomes(case_id);
+
+  -- Case memory: reusable organizational knowledge from verified cases.
+  CREATE TABLE IF NOT EXISTS case_memory (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    case_id         INTEGER REFERENCES cases(id),
+    company_id      INTEGER NOT NULL REFERENCES companies(id),
+    equipment_type  TEXT NOT NULL DEFAULT '',
+    component       TEXT NOT NULL DEFAULT '',
+    symptoms        TEXT NOT NULL DEFAULT '',
+    sensor_patterns TEXT NOT NULL DEFAULT '',
+    visual_findings TEXT NOT NULL DEFAULT '',
+    failure_mode    TEXT NOT NULL DEFAULT '',
+    root_cause      TEXT NOT NULL DEFAULT '',
+    verified_evidence TEXT NOT NULL DEFAULT '[]',
+    corrective_action TEXT NOT NULL DEFAULT '',
+    preventive_action TEXT NOT NULL DEFAULT '',
+    outcome         TEXT NOT NULL DEFAULT '',
+    lessons         TEXT NOT NULL DEFAULT '',
+    reliability     TEXT NOT NULL DEFAULT 'UNVERIFIED' CHECK (reliability IN ('VERIFIED','PARTIALLY_VERIFIED','UNVERIFIED','DISPUTED')),
+    verified_by     INTEGER REFERENCES users(id),
+    verified_at     TEXT,
+    status          TEXT NOT NULL DEFAULT 'DRAFT' CHECK (status IN ('DRAFT','VERIFIED','PARTIALLY_VERIFIED','UNVERIFIED','DISPUTED')),
+    created_at      TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_at      TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+  CREATE INDEX IF NOT EXISTS idx_cm_company ON case_memory(company_id);
+  CREATE INDEX IF NOT EXISTS idx_cm_equipment ON case_memory(equipment_type);
+  CREATE INDEX IF NOT EXISTS idx_cm_failure ON case_memory(failure_mode);
+
+  -- Case memory feedback (prevents silent rewriting of history).
+  CREATE TABLE IF NOT EXISTS case_memory_feedback (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    memory_id       INTEGER NOT NULL REFERENCES case_memory(id),
+    company_id      INTEGER NOT NULL REFERENCES companies(id),
+    user_id         INTEGER NOT NULL REFERENCES users(id),
+    feedback        TEXT NOT NULL CHECK (feedback IN ('USEFUL','NOT_USEFUL','INCORRECT','NEEDS_REVIEW')),
+    reason          TEXT NOT NULL DEFAULT '',
+    created_at      TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+  CREATE INDEX IF NOT EXISTS idx_cmf_memory ON case_memory_feedback(memory_id);
+
+  -- Case revisions (meaningful investigation revisions).
+  CREATE TABLE IF NOT EXISTS case_revisions (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    case_id         INTEGER NOT NULL REFERENCES cases(id),
+    company_id      INTEGER NOT NULL REFERENCES companies(id),
+    investigation_id INTEGER REFERENCES investigations(id),
+    revision_number INTEGER NOT NULL,
+    description     TEXT NOT NULL,
+    evidence_state  TEXT NOT NULL DEFAULT '{}',
+    hypothesis_state TEXT NOT NULL DEFAULT '[]',
+    verification_state TEXT NOT NULL DEFAULT '{}',
+    safety_state    TEXT NOT NULL DEFAULT '{}',
+    approval_state  TEXT NOT NULL DEFAULT '{}',
+    created_by      INTEGER REFERENCES users(id),
+    created_at      TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+  CREATE INDEX IF NOT EXISTS idx_cr_case ON case_revisions(case_id);
+
+  -- Case closure tracking.
+  CREATE TABLE IF NOT EXISTS case_closure (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    case_id         INTEGER NOT NULL REFERENCES cases(id),
+    company_id      INTEGER NOT NULL REFERENCES companies(id),
+    closure_status  TEXT NOT NULL DEFAULT 'NOT_CLOSED' CHECK (closure_status IN ('NOT_CLOSED','READY','BLOCKED','CLOSED','REOPENED','ARCHIVED')),
+    final_finding   TEXT NOT NULL DEFAULT '',
+    root_cause      TEXT NOT NULL DEFAULT '',
+    failure_mode    TEXT NOT NULL DEFAULT '',
+    corrective_action TEXT NOT NULL DEFAULT '',
+    preventive_action TEXT NOT NULL DEFAULT '',
+    resolution_status TEXT NOT NULL DEFAULT 'UNKNOWN',
+    resolution_evidence TEXT NOT NULL DEFAULT '',
+    technician_conclusion TEXT NOT NULL DEFAULT '',
+    reviewer_conclusion TEXT NOT NULL DEFAULT '',
+    final_decision  TEXT NOT NULL DEFAULT '',
+    closed_by       INTEGER REFERENCES users(id),
+    closed_at       TEXT,
+    reopened_reason TEXT,
+    reopened_by     INTEGER REFERENCES users(id),
+    reopened_at     TEXT,
+    archived_at     TEXT,
+    created_at      TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+  CREATE UNIQUE INDEX IF NOT EXISTS idx_cc_case ON case_closure(case_id);
+
+  -- Reports (generated investigation reports).
+  CREATE TABLE IF NOT EXISTS reports (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    case_id         INTEGER NOT NULL REFERENCES cases(id),
+    company_id      INTEGER NOT NULL REFERENCES companies(id),
+    report_id       TEXT NOT NULL,
+    version         INTEGER NOT NULL DEFAULT 1,
+    generated_by    INTEGER NOT NULL REFERENCES users(id),
+    status          TEXT NOT NULL DEFAULT 'CURRENT' CHECK (status IN ('CURRENT','STALE','ARCHIVED')),
+    integrity_hash  TEXT NOT NULL DEFAULT '',
+    format          TEXT NOT NULL DEFAULT 'PDF' CHECK (format IN ('PDF','JSON','CSV')),
+    file_path       TEXT NOT NULL DEFAULT '',
+    file_size       INTEGER NOT NULL DEFAULT 0,
+    report_data     TEXT NOT NULL DEFAULT '{}',
+    created_at      TEXT NOT NULL DEFAULT (datetime('now')),
+    generated_at    TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+  CREATE INDEX IF NOT EXISTS idx_reports_case ON reports(case_id);
+  CREATE INDEX IF NOT EXISTS idx_reports_company ON reports(company_id);
+  CREATE INDEX IF NOT EXISTS idx_reports_id ON reports(report_id);
+
+  -- Case exports (authorized export tracking).
+  CREATE TABLE IF NOT EXISTS case_exports (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    case_id         INTEGER NOT NULL REFERENCES cases(id),
+    company_id      INTEGER NOT NULL REFERENCES companies(id),
+    export_id       TEXT NOT NULL,
+    exported_by     INTEGER NOT NULL REFERENCES users(id),
+    format          TEXT NOT NULL DEFAULT 'PACKAGE' CHECK (format IN ('PDF','JSON','PACKAGE')),
+    manifest        TEXT NOT NULL DEFAULT '{}',
+    manifest_hash   TEXT NOT NULL DEFAULT '',
+    status          TEXT NOT NULL DEFAULT 'COMPLETED' CHECK (status IN ('COMPLETED','FAILED','CANCELLED')),
+    created_at      TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+  CREATE INDEX IF NOT EXISTS idx_ce_case ON case_exports(case_id);
+
+  -- Data lineage nodes.
+  CREATE TABLE IF NOT EXISTS lineage_nodes (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    case_id         INTEGER NOT NULL REFERENCES cases(id),
+    company_id      INTEGER NOT NULL REFERENCES companies(id),
+    node_id         TEXT NOT NULL,
+    node_type       TEXT NOT NULL CHECK (node_type IN ('SOURCE','PROCESSING','DOCUMENT','CHUNK','EMBEDDING','SENSOR_DATA','IMAGE','FINDING','EVIDENCE','HYPOTHESIS','VERIFICATION','SAFETY','DECISION','ACTION','OUTCOME','REPORT')),
+    label           TEXT NOT NULL,
+    metadata        TEXT NOT NULL DEFAULT '{}',
+    upstream_node_ids TEXT NOT NULL DEFAULT '[]',
+    downstream_node_ids TEXT NOT NULL DEFAULT '[]',
+    created_at      TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+  CREATE INDEX IF NOT EXISTS idx_ln_case ON lineage_nodes(case_id);
+  CREATE INDEX IF NOT EXISTS idx_ln_node ON lineage_nodes(node_id);
+
+  -- Case comments (internal operational commentary).
+  CREATE TABLE IF NOT EXISTS comments (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    case_id         INTEGER NOT NULL REFERENCES cases(id),
+    company_id      INTEGER NOT NULL REFERENCES companies(id),
+    author_id       INTEGER NOT NULL REFERENCES users(id),
+    message         TEXT NOT NULL,
+    parent_id       INTEGER REFERENCES comments(id),
+    edited_at       TEXT,
+    created_at      TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+  CREATE INDEX IF NOT EXISTS idx_comments_case ON comments(case_id);
+
+  -- Sovereignty configuration (actual deployment state).
+  CREATE TABLE IF NOT EXISTS sovereignty_config (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    company_id      INTEGER NOT NULL REFERENCES companies(id),
+    data_residency  TEXT NOT NULL DEFAULT 'UNKNOWN',
+    external_ai_policy TEXT NOT NULL DEFAULT 'BLOCKED',
+    external_network_policy TEXT NOT NULL DEFAULT 'DISABLED',
+    vector_db_location TEXT NOT NULL DEFAULT 'LOCAL',
+    document_storage TEXT NOT NULL DEFAULT 'LOCAL',
+    encryption_status TEXT NOT NULL DEFAULT 'NOT_CONFIGURED',
+    retention_documents TEXT NOT NULL DEFAULT 'UNCONFIGURED',
+    retention_evidence TEXT NOT NULL DEFAULT 'UNCONFIGURED',
+    retention_reports TEXT NOT NULL DEFAULT 'UNCONFIGURED',
+    retention_audit TEXT NOT NULL DEFAULT 'UNCONFIGURED',
+    retention_memory TEXT NOT NULL DEFAULT 'UNCONFIGURED',
+    backup_enabled  INTEGER NOT NULL DEFAULT 0,
+    audit_enabled   INTEGER NOT NULL DEFAULT 1,
+    updated_at      TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+  CREATE UNIQUE INDEX IF NOT EXISTS idx_sc_company ON sovereignty_config(company_id);
+
+  -- Sovereignty health check results.
+  CREATE TABLE IF NOT EXISTS sovereignty_health (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    company_id      INTEGER NOT NULL REFERENCES companies(id),
+    check_name      TEXT NOT NULL,
+    status          TEXT NOT NULL CHECK (status IN ('PASS','WARNING','BLOCKED','UNKNOWN')),
+    detail          TEXT NOT NULL DEFAULT '',
+    checked_at      TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+  CREATE INDEX IF NOT EXISTS idx_sh_company ON sovereignty_health(company_id);

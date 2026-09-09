@@ -43,6 +43,10 @@ export default function VerificationDetail() {
     setStatusAction("");
   }
 
+  async function evaluateSafetyGate() {
+    await act(api.verificationEvaluateSafetyGate(vid), "Safety gate evaluated");
+  }
+
   async function addObservation(e: React.FormEvent) {
     e.preventDefault();
     if (!obsDesc.trim()) return;

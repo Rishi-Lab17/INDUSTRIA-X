@@ -20,6 +20,7 @@
 - Stage 6 — COMPLETE (sensor intelligence + vision intelligence + multimodal investigation; deterministic local analysis, no fake AI)
 - Stage 7 — COMPLETE (multi-hypothesis investigation intelligence + evidence graph + Next-Best-Evidence; deterministic local engines, Kimi OFFLINE honestly)
 - Stage 8 — COMPLETE (verification workflow + safety gate + technician workflow + human approval; separation of duties, backend-enforced safety control, 146 tests)
+- Stage 9 — PARTIAL (case management API routes, memory, lineage, audit, sovereignty, reports; needs integration testing completion)
 
 ## Team Git workflow
 
@@ -37,7 +38,7 @@ CI (`.github/workflows/ci.yml`) runs pytest + frontend build, credential-free.
 6. Sensor intelligence (real CSV stats/anomalies) + vision (real image analysis)
 7. Multiple hypotheses + evidence graph + next-best-evidence
 8. Verification + safety gate + technician workflow + human approval
-9. PDF reports + case memory + replay + audit + sovereignty center
+9. PDF reports + case memory + replay + audit + sovereignty center (PARTIAL)
 10. Integration + testing + performance + local deployment + final polish
 
 Every AI/sensor/RAG/verification result comes from a real backend computation.
