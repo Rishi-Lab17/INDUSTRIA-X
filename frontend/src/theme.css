@@ -368,3 +368,13 @@ a:hover { color: var(--accent-light); }
 
 .fade-in { animation: fadeIn 0.4s ease both; }
 .pulse { animation: pulse 2s ease-in-out infinite; }
+
+/* Responsive shell — mobile */
+@media (max-width: 768px) {
+  .shell { flex-direction: column; }
+  .sidebar { width: 100%; height: auto; position: static; border-right: none; border-bottom: 1px solid var(--border); }
+  .main { padding: 16px; }
+  .grid-2, .grid-3 { grid-template-columns: 1fr; }
+  .table { display: block; overflow-x: auto; white-space: nowrap; }
+  .topbar { flex-direction: column; align-items: flex-start; }
+}

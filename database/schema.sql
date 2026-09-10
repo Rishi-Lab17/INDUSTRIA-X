@@ -740,7 +740,7 @@ CREATE TABLE IF NOT EXISTS conflicts (
   -- Case: persistent case management layer around investigation.
   CREATE TABLE IF NOT EXISTS cases (
     id              INTEGER PRIMARY KEY AUTOINCREMENT,
-    case_number     TEXT NOT NULL,
+    case_number     TEXT NOT NULL UNIQUE,
     company_id      INTEGER NOT NULL REFERENCES companies(id),
     workspace_id    INTEGER REFERENCES workspaces(id),
     investigation_id INTEGER REFERENCES investigations(id),

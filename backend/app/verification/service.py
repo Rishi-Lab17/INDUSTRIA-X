@@ -759,9 +759,8 @@ def get_approval_inbox(con, company_id: int, page: int = 1, page_size: int = 20)
                   e.code AS equipment_code, e.name AS equipment_name
            FROM approvals a JOIN verifications v ON a.verification_id = v.id
            JOIN equipment e ON v.equipment_id = e.id
-           WHERE a.status = 'PENDING' AND (v.assigned_reviewer_id = ? OR a.approval_level IN ('SUPERVISOR','SAFETY_OFFICER'))"""
-    params: list = [company_id]
-    # Simple approach: show all pending for company where user might be reviewer
+           WHERE a.company_id = ? AND v.company_id = ? AND a.status = 'PENDING'"""
+    params: list = [company_id, company_id]
     total = con.execute(f"SELECT COUNT(*) FROM ({q})", params).fetchone()[0]
     rows = con.execute(q + " ORDER BY a.created_at DESC LIMIT ? OFFSET ?",
                        (*params, page_size, (page - 1) * page_size)).fetchall()

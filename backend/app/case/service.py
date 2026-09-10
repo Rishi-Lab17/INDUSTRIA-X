@@ -31,10 +31,16 @@ MEMORY_FEEDBACK = ("USEFUL", "NOT_USEFUL", "INCORRECT", "NEEDS_REVIEW")
 
 def _generate_case_number(con, company_id: int) -> str:
     year = datetime.now().strftime("%Y")
+    # Global uniqueness: case_number is UNIQUE across all companies in DB
     count = con.execute(
-        "SELECT COUNT(*) FROM cases WHERE company_id = ? AND strftime('%Y', opened_at) = ?",
-        (company_id, year)).fetchone()[0]
-    return f"INDX-{year}-{count + 1:06d}"
+        "SELECT COUNT(*) FROM cases WHERE strftime('%Y', opened_at) = ?",
+        (year,)).fetchone()[0]
+    base = f"INDX-{year}-{count + 1:06d}"
+    # Ensure uniqueness even under race: append short suffix if collision would occur
+    existing = con.execute("SELECT 1 FROM cases WHERE case_number = ?", (base,)).fetchone()
+    if existing:
+        base = f"INDX-{year}-{count + 1:06d}-{uuid.uuid4().hex[:4].upper()}"
+    return base
 
 
 def _owned_case(con, cid: int, company_id: int) -> dict:
@@ -194,16 +200,26 @@ class MemoryFeedbackIn(BaseModel):
 
 def create_case(con, body: CaseCreate, company_id: int, user_id: int) -> dict:
     inv = get_owned_investigation(con, body.investigation_id, company_id)
-    case_number = _generate_case_number(con, company_id)
     eq_id = body.equipment_id or inv["equipment_id"]
-    cur = con.execute(
-        "INSERT INTO cases (case_number, company_id, workspace_id, investigation_id,"
-        " equipment_id, title, summary, priority, severity, status,"
-        " opened_by, created_at, updated_at)"
-        " VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)",
-        (case_number, company_id, inv["workspace_id"], body.investigation_id,
-         eq_id, body.title, body.summary, body.priority, body.severity, "OPEN",
-         user_id, utcnow_iso(), utcnow_iso()))
+    # Retry on case_number collision (COUNT(*) race)
+    for _ in range(5):
+        case_number = _generate_case_number(con, company_id)
+        try:
+            cur = con.execute(
+                "INSERT INTO cases (case_number, company_id, workspace_id, investigation_id,"
+                " equipment_id, title, summary, priority, severity, status,"
+                " opened_by, created_at, updated_at)"
+                " VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                (case_number, company_id, inv["workspace_id"], body.investigation_id,
+                 eq_id, body.title, body.summary, body.priority, body.severity, "OPEN",
+                 user_id, utcnow_iso(), utcnow_iso()))
+            break
+        except Exception as e:
+            if "UNIQUE constraint failed" in str(e) and "cases.case_number" in str(e):
+                continue
+            raise
+    else:
+        raise HTTPException(status_code=409, detail="Could not generate unique case number")
     cid = cur.lastrowid
     con.execute(
         "INSERT INTO case_closure (case_id, company_id, closure_status)"
