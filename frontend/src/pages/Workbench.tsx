@@ -57,11 +57,17 @@ export default function Workbench() {
       .catch((e) => setErr(e instanceof Error ? e.message : "Load failed"));
   }, []);
 
+  const [devHealth, setDevHealth] = useState<{ status: string; detail: string } | null>(null);
+
   useEffect(() => {
     refreshSessions();
     api.aiHealth()
       .then((h) => setHealth({ status: h.status, display: h.display, is_test: h.is_test, detail: h.detail }))
       .catch(() => setHealth({ status: "ERROR", display: "AI", is_test: false, detail: "health unreachable" }));
+    api.health().then((h) => {
+      const svc = (h as { services: Record<string, { status: string; detail: string }> }).services;
+      if (svc?.dev_model) setDevHealth(svc.dev_model);
+    }).catch(() => setDevHealth(null));
     api.kbHealth()
       .then((h) => setRagReady(h.indexed > 0 ? `READY (${h.indexed} docs)` : "EMPTY"))
       .catch(() => setRagReady("UNAVAILABLE"));
@@ -136,7 +142,9 @@ export default function Workbench() {
     });
     if (!res.ok || !res.body) {
       const data = await res.json().catch(() => ({}));
-      throw new Error((data as { detail?: string }).detail ?? `Stream failed (${res.status})`);
+      const d = (data as { detail?: unknown }).detail;
+      const msg = typeof d === "string" ? d : Array.isArray(d) ? d.map((x: unknown) => (x as { msg?: string }).msg || String(x)).join("; ") : d && typeof d === "object" && "message" in (d as Record<string,unknown>) ? String((d as Record<string,unknown>).message) : `Stream failed (${res.status})`;
+      throw new Error(msg);
     }
     const reader = res.body.getReader();
     const dec = new TextDecoder();
@@ -196,16 +204,22 @@ export default function Workbench() {
       <div className="panel" style={{ marginBottom: 16 }}>
         <div style={{ display: "flex", gap: 16, flexWrap: "wrap", fontSize: 13, alignItems: "center" }}>
           <span>
-            Model: <b>{health?.display ?? "…"}</b> {health && <StatusDot status={health.status} />} {health?.status}
+            PRIMARY: <b>Kimi K3</b> {health && <StatusDot status={health.status} />} {health?.status ?? "…"}
             {health?.is_test && <span className="badge" style={{ marginLeft: 8 }}>TEST ONLY</span>}
           </span>
+          <span>
+            DEV MODEL: <b>Ollama</b> {devHealth && <StatusDot status={devHealth.status} />} {devHealth?.status ?? "…"}
+            <span style={{ color: "var(--muted)", marginLeft: 6 }}>{devHealth?.detail?.slice(0, 60) ?? ""}</span>
+          </span>
           <span>Knowledge: <b>{ragReady}</b></span>
-          <span>External AI: <b>BLOCKED</b></span>
+          <span>External AI: <b>BLOCKED</b> (sovereignty)</span>
+        </div>
+        <div style={{ fontSize: 11, color: "var(--muted)", marginTop: 6 }}>
+          PRIMARY KIMI K3 = <span className="mono">{health?.display ?? "kimi-k3"}</span> at <span className="mono">http://127.0.0.1:11436/v1</span> (2.8T, datacenter) · DEV MODEL = <span className="mono">Ollama</span> at <span className="mono">http://127.0.0.1:11434</span> (labelled, never Kimi) · External AI is sovereignty-blocked, no silent fallback.
         </div>
         {offline && health && (
           <div className="alert alert-warn" style={{ marginTop: 12, marginBottom: 0 }}>
-            Local Kimi K3 is currently unavailable. {health.detail} Retrieval and
-            evidence still work; answers cannot be generated until a model is connected.
+            <b>PRIMARY KIMI K3 is unavailable</b>: {health.detail} Retrieval, RAG, and investigations still work; answers cannot be generated until a local model is connected. If <b>DEV MODEL Ollama</b> is {devHealth?.status === "ONLINE" ? "ONLINE" : "also OFFLINE"} — {devHealth?.detail ?? "Ollama not running"} — start it via <span className="mono">ollama run hf.co/nvidia/NVIDIA-Nemotron-3-Nano-4B-GGUF:Q4_K_M</span> to enable the labelled dev model (never reported as Kimi K3).
           </div>
         )}
       </div>

@@ -33,7 +33,7 @@ def generate_report(con, case_id: int, company_id: int,
         "INSERT INTO reports (case_id, company_id, report_id, version,"
         " generated_by, status, format, report_data, generated_at)"
         " VALUES (?,?,?,1,?,?,?,?,?)",
-        (case_id, company_id, report_id, generated_by, format, "CURRENT",
+        (case_id, company_id, report_id, generated_by, "CURRENT", format,
          json.dumps({"case_number": c["case_number"], "equipment": dict(eq) if eq else None,
                       "investigation": dict(inv) if inv else None,
                       "evidence_count": ev_count, "hypothesis_count": hyp_count,

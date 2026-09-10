@@ -77,6 +77,16 @@ export interface KBPreview {
   sections: { type: string; text: string; page?: number; source?: string }[];
 }
 
+export function getErrorMessage(err: unknown, fallback = "Request failed"): string {
+  if (err instanceof Error) {
+    // Already normalized via humanDetail in req(); ensure no [object Object] leaks
+    if (err.message && err.message !== "[object Object]" && !err.message.includes("[object Object]")) return err.message;
+    try { return JSON.stringify(err); } catch { return fallback; }
+  }
+  if (typeof err === "string") return err;
+  return fallback;
+}
+
 function humanDetail(detail: unknown, fallback: string): string {
   if (typeof detail === "string") return detail;
   if (Array.isArray(detail)) {
