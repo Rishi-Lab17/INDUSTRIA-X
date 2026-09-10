@@ -4,7 +4,7 @@ hypothesis/graph/NBE/simulate/history/similar APIs; RBAC; isolation;
 prompt-injection; AI-offline honesty; audit."""
 import json
 
-from helpers import client, code_for, db
+from helpers import client, db
 
 K = 0
 
@@ -21,8 +21,6 @@ def _admin():
         "company_name": company, "name": "Admin", "email": email,
         "password": "Str0ngPass!"})
     assert r.status_code == 201, r.text
-    assert client.post("/api/auth/verify-otp",
-                       json={"email": email, "code": code_for(email)}).status_code == 200
     lr = client.post("/api/auth/login",
                      json={"email": email, "password": "Str0ngPass!"})
     assert lr.status_code == 200
@@ -728,3 +726,4 @@ def test_unauth_and_rate_limit():
         codes.add(client.post(f"/api/cases/{inv['id']}/status", headers=ha,
                               json={"status": "OPEN"}).status_code)
     assert 429 in codes
+

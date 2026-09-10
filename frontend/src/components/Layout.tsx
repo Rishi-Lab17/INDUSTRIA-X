@@ -25,6 +25,7 @@ const LINKS = [
   { to: "/audit", label: "Audit Trail" },
   { to: "/sovereignty", label: "Sovereignty Center" },
   { to: "/health", label: "System Health" },
+  { to: "/live-investigation", label: "Live Investigation" },
 ];
 
 export default function Layout() {

@@ -21,29 +21,7 @@ class Settings(BaseSettings):
     JWT_SECRET: str = "change-me-to-a-long-random-secret-min-32-chars"
     JWT_ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 720
-    OTP_EXPIRE_MINUTES: int = 5
-    OTP_MAX_ATTEMPTS: int = 5
-    OTP_VERIFY_MAX_PER_WINDOW: int = 10
-    OTP_VERIFY_WINDOW_S: int = 600
-    OTP_RESEND_COOLDOWN_S: int = 60
-    OTP_RESEND_MAX_PER_HOUR: int = 5
     BCRYPT_ROUNDS: int = 12
-
-    # --- Email OTP delivery (Resend API). Credentials from env; never hardcoded.
-    # The Resend call happens ONLY in the FastAPI backend, never the frontend.
-    # RESEND_ENABLED=true AND a key → Resend; otherwise development outbox
-    # (local) or loud refusal (other envs). Never crashes for a missing key.
-    RESEND_ENABLED: bool = True
-    RESEND_API_KEY: str = ""
-    RESEND_FROM_EMAIL: str = ""
-    RESEND_FROM_NAME: str = "INDUSTRIA-X"
-    RESEND_BASE_URL: str = "https://api.resend.com"
-    RESEND_TIMEOUT_S: int = 15
-
-    # Local-dev outbox: when Resend is unconfigured AND APP_ENV=local, the
-    # verification email is written here as a file instead of being sent.
-    # The API/UI never carry the code. Production refuses (502) instead.
-    DEV_OUTBOX_DIR: str = "./storage/temporary/dev-outbox"
 
     # --- Firebase phone auth (verification only; authZ stays in INDUSTRIA-X) ---
     FIREBASE_PROJECT_ID: str = ""
@@ -54,6 +32,7 @@ class Settings(BaseSettings):
     STORAGE_SENSORS: str = "./storage/sensor_data"
     STORAGE_REPORTS: str = "./storage/reports"
     STORAGE_TEMP: str = "./storage/temporary"
+    STORAGE_RECORDINGS: str = "./storage/recordings"
     MAX_UPLOAD_SIZE_MB: int = 50
 
     # --- Stage 3 knowledge base: all local, no external calls ---
@@ -65,16 +44,13 @@ class Settings(BaseSettings):
 
     AI_PROVIDER: str = "kimi-k3"
     AI_ACTIVE_MODEL: str = "kimi-k3"
-    # Placeholder for the operator's on-prem Kimi K3 server (OpenAI-compatible).
-    # Uses a port nothing else binds so health probes never hit our own backend
-    # (that self-hit caused the /v1/models 404 noise). Set the real URL in .env.
     KIMI_K3_BASE_URL: str = "http://127.0.0.1:11436/v1"
     KIMI_K3_MODEL: str = "kimi-k3"
     KIMI_K3_API_KEY: str = "local"
     KIMI_K3_TIMEOUT_S: int = 5
     # --- Stage 5 AI workbench (local-first; Kimi K3 primary, no fallback) ---
     KIMI_ENABLED: bool = True
-    KIMI_CONNECT_TIMEOUT_S: int = 5
+    KIMI_CONNECT_TIMEOUT_S: float = 5
     KIMI_MAX_RETRIES: int = 2
     KIMI_MAX_TOKENS: int = 1024
     KIMI_TEMPERATURE: float = 0.2
@@ -132,7 +108,8 @@ class Settings(BaseSettings):
     def storage_dirs(self) -> list[Path]:
         out = []
         for v in (self.STORAGE_DOCUMENTS, self.STORAGE_IMAGES,
-                  self.STORAGE_SENSORS, self.STORAGE_REPORTS, self.STORAGE_TEMP):
+                  self.STORAGE_SENSORS, self.STORAGE_REPORTS, self.STORAGE_TEMP,
+                  self.STORAGE_RECORDINGS):
             p = Path(v)
             out.append(p if p.is_absolute() else ROOT / p)
         return out

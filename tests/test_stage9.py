@@ -1,5 +1,5 @@
 """Stage 9 tests: case management, memory, lineage, audit, sovereignty, reports, security."""
-from helpers import client, code_for, db
+from helpers import client, db
 
 K = 0
 
@@ -16,8 +16,6 @@ def _admin():
         "company_name": company, "name": "Admin", "email": email,
         "password": "Str0ngPass!"})
     assert r.status_code == 201, r.text
-    assert client.post("/api/auth/verify-otp",
-                        json={"email": email, "code": code_for(email)}).status_code == 200
     lr = client.post("/api/auth/login",
                       json={"email": email, "password": "Str0ngPass!"})
     assert lr.status_code == 200
@@ -30,8 +28,6 @@ def _engineer():
         "company_name": company, "name": "Eng", "email": email,
         "password": "Str0ngPass!", "role": "ENGINEER"})
     assert r.status_code == 201, r.text
-    assert client.post("/api/auth/verify-otp",
-                        json={"email": email, "code": code_for(email)}).status_code == 200
     lr = client.post("/api/auth/login",
                       json={"email": email, "password": "Str0ngPass!"})
     assert lr.status_code == 200
@@ -290,8 +286,6 @@ def test_case_idor_protection():
         "company_name": company_b, "name": "Admin B",
         "email": email_b, "password": "Str0ngPass!"})
     assert r.status_code == 201, r.text
-    assert client.post("/api/auth/verify-otp",
-                        json={"email": email_b, "code": code_for(email_b)}).status_code == 200
     lr = client.post("/api/auth/login",
                       json={"email": email_b, "password": "Str0ngPass!"})
     assert lr.status_code == 200

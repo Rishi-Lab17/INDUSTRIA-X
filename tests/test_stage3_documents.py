@@ -4,7 +4,7 @@ archive/delete, audit, security probes."""
 import hashlib
 import io
 
-from helpers import client, code_for, db
+from helpers import client, db
 
 K = 0
 
@@ -21,8 +21,6 @@ def _admin():
         "company_name": company, "name": "Admin", "email": email,
         "password": "Str0ngPass!"})
     assert r.status_code == 201, r.text
-    assert client.post("/api/auth/verify-otp",
-                       json={"email": email, "code": code_for(email)}).status_code == 200
     lr = client.post("/api/auth/login",
                      json={"email": email, "password": "Str0ngPass!"})
     assert lr.status_code == 200
@@ -406,3 +404,4 @@ def test_ocr_abstraction_honest():
     d = _upload(ha, _png_bytes(), "img.png").json()
     assert d["ocr_used"] is False
     assert "OCR" in (d["processing_note"] or "")
+

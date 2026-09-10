@@ -1,6 +1,6 @@
 """Stage 2 tests: company workspace, equipment CRUD, QR, history, RBAC matrix,
 cross-company isolation, validation, audit."""
-from helpers import client, code_for
+from helpers import client
 
 M = 0
 
@@ -18,8 +18,6 @@ def _admin(email=None, company=None):
         "company_name": company, "name": "Admin", "email": email,
         "password": "Str0ngPass!"})
     assert r.status_code == 201, r.text
-    assert client.post("/api/auth/verify-otp",
-                       json={"email": email, "code": code_for(email)}).status_code == 200
     lr = client.post("/api/auth/login",
                      json={"email": email, "password": "Str0ngPass!"})
     assert lr.status_code == 200
@@ -194,3 +192,4 @@ def test_unauthenticated_blocked():
         r = client.request(method, path,
                            json={"settings": {}} if method == "patch" else None)
         assert r.status_code in (401, 422), (method, path, r.status_code)
+

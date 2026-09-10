@@ -9,7 +9,7 @@ from app.rag.embeddings import (DeterministicTestProvider, FastEmbedProvider,
                                 get_embedding_provider, set_embedding_provider)
 from app.rag.retrieval import normalize_query
 from app.rag.service import EVAL_CORPUS
-from helpers import client, code_for, db
+from helpers import client, db
 
 N = 0
 
@@ -26,8 +26,6 @@ def _admin():
         "company_name": company, "name": "Admin", "email": email,
         "password": "Str0ngPass!"})
     assert r.status_code == 201, r.text
-    assert client.post("/api/auth/verify-otp",
-                       json={"email": email, "code": code_for(email)}).status_code == 200
     lr = client.post("/api/auth/login",
                      json={"email": email, "password": "Str0ngPass!"})
     assert lr.status_code == 200
@@ -444,3 +442,4 @@ def test_performance_bounds():
           f" search {search_s:.2f}s, hits={r.get('count')}")
     assert r["status"] == "OK"
     assert search_s < 5.0
+
