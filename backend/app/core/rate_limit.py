@@ -1,7 +1,7 @@
 """In-memory sliding-window rate limiter (per-process, prototype-grade).
 
-Used for OTP verify/resend brute-force and cooldown protection. For a
-multi-process deployment this must move to Redis — tracked for Stage 10.
+General brute-force and cooldown protection. For a multi-process
+deployment this must move to Redis — tracked for Stage 10.
 """
 import threading
 import time
