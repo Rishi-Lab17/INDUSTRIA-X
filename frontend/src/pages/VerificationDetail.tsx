@@ -26,7 +26,7 @@ export default function VerificationDetail() {
   const [comments, setComments] = useState("");
 
   const load = useCallback(() => {
-    api.verificationGet(vid).then((r) => setV(r)).catch((e) => setErr(String(e)));
+    api.verificationGet(vid).then((r) => setV(r)).catch((e) => setErr(e instanceof Error ? e.message : String(e)));
   }, [vid]);
 
   useEffect(load, [load]);

@@ -37,7 +37,7 @@ export default function VisionIntel() {
   const imgRef = useRef<HTMLImageElement | null>(null);
 
   function loadList() {
-    api.visionList().then((r) => setImages(r.images)).catch((e) => setErr(String(e)));
+    api.visionList().then((r) => setImages(r.images)).catch((e) => setErr(e instanceof Error ? e.message : String(e)));
     api.equipmentList().then((r) => setEquipment(r.equipment)).catch(() => undefined);
   }
   useEffect(loadList, []);

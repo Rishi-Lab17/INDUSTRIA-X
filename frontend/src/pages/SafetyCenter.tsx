@@ -8,7 +8,7 @@ export default function SafetyCenter() {
   const [err, setErr] = useState("");
 
   useEffect(() => {
-    api.verificationSafetyCenter().then((r) => setData(r)).catch((e) => setErr(String(e)));
+    api.verificationSafetyCenter().then((r) => setData(r)).catch((e) => setErr(e instanceof Error ? e.message : String(e)));
   }, []);
 
   if (err) return <div className="alert alert-error">{err}</div>;

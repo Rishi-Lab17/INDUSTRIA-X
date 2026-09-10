@@ -97,6 +97,35 @@ def list_verifications_endpoint(sess: dict = Depends(get_current_session),
         con.close()
 
 
+# Static routes must come before dynamic /{vid} to avoid path-param shadowing (safety-center/approvals/dashboard)
+@router.get("/approvals")
+def approval_inbox_endpoint(sess: dict = Depends(get_current_session),
+                              page: int = 1, page_size: int = 20):
+    con = connect()
+    try:
+        return get_approval_inbox(con, sess["company_id"], page, page_size)
+    finally:
+        con.close()
+
+
+@router.get("/safety-center")
+def safety_center_endpoint(sess: dict = Depends(get_current_session)):
+    con = connect()
+    try:
+        return get_safety_center(con, sess["company_id"])
+    finally:
+        con.close()
+
+
+@router.get("/dashboard")
+def dashboard_stats_endpoint(sess: dict = Depends(get_current_session)):
+    con = connect()
+    try:
+        return get_dashboard_stats(con, sess["company_id"])
+    finally:
+        con.close()
+
+
 @router.get("/{vid}")
 def get_verification_endpoint(vid: int, sess: dict = Depends(get_current_session)):
     con = connect()
@@ -540,40 +569,6 @@ def scorecard_endpoint(vid: int, sess: dict = Depends(get_current_session)):
     try:
         _owned_verification(con, vid, sess["company_id"])
         return get_verification_scorecard(con, vid, sess["company_id"])
-    finally:
-        con.close()
-
-
-# ---------- approval inbox ----------
-
-@router.get("/approvals")
-def approval_inbox_endpoint(sess: dict = Depends(get_current_session),
-                              page: int = 1, page_size: int = 20):
-    con = connect()
-    try:
-        return get_approval_inbox(con, sess["company_id"], page, page_size)
-    finally:
-        con.close()
-
-
-# ---------- safety center ----------
-
-@router.get("/safety-center")
-def safety_center_endpoint(sess: dict = Depends(get_current_session)):
-    con = connect()
-    try:
-        return get_safety_center(con, sess["company_id"])
-    finally:
-        con.close()
-
-
-# ---------- dashboard stats ----------
-
-@router.get("/dashboard")
-def dashboard_stats_endpoint(sess: dict = Depends(get_current_session)):
-    con = connect()
-    try:
-        return get_dashboard_stats(con, sess["company_id"])
     finally:
         con.close()
 

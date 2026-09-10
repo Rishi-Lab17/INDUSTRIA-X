@@ -44,7 +44,7 @@ export default function InvestigationDetail() {
   const [copilotA, setCopilotA] = useState("");
 
   const load = useCallback(() => {
-    api.caseGet(iid).then((r) => setInv(r.investigation)).catch((e) => setErr(String(e)));
+    api.caseGet(iid).then((r) => setInv(r.investigation)).catch((e) => setErr(e instanceof Error ? e.message : String(e)));
     api.caseHypotheses(iid).then((r) => setHyps(r.hypotheses)).catch(() => undefined);
     api.caseEvidenceList(iid).then((r) => setEvidence(r.evidence)).catch(() => undefined);
     api.caseGraph(iid).then(setGraph).catch(() => undefined);

@@ -32,6 +32,7 @@ export default function LiveInvestigation() {
   const { canWrite: roleCanWrite } = useRole();
   const canWrite = roleCanWrite || (user?.role === "COMPANY_ADMIN" || user?.role === "ENGINEER");
   const recId = Number(id);
+  const isListMode = !id || Number.isNaN(recId);
   
   // Recording state
   const [recording, setRecording] = useState<Recording | null>(null);
@@ -58,11 +59,37 @@ export default function LiveInvestigation() {
   const pausedDurationRef = useRef(0);
   const pauseStartTimeRef = useRef<number | null>(null);
 
-  // Load recording on mount
+  // List mode state (when /live-investigation is visited without an id)
+  const [listItems, setListItems] = useState<unknown[]>([]);
+  const [listLoading, setListLoading] = useState(false);
+  const [createTitle, setCreateTitle] = useState("");
+  const [createEq, setCreateEq] = useState("");
+  const [equipList, setEquipList] = useState<{ id: number; code: string }[]>([]);
+
   useEffect(() => {
+    if (isListMode) {
+      setListLoading(true);
+      Promise.all([
+        api.recordingList().then((r) => setListItems((r as { recordings: unknown[] }).recordings || [])).catch(() => setListItems([])),
+        api.equipmentList().then((r) => setEquipList(r.equipment.map((e) => ({ id: e.id, code: e.code })))).catch(() => setEquipList([])),
+      ]).finally(() => setListLoading(false));
+    }
+  }, [isListMode]);
+
+  async function createRecording() {
+    if (!createTitle.trim() || !createEq) { setError("Title and equipment required"); return; }
+    try {
+      const r = await api.recordingCreate({ title: createTitle.trim(), equipment_id: Number(createEq), media_type: "video" }) as { id: number };
+      navigate(`/investigations/${r.id}/live`);
+    } catch (e: unknown) { setError(e instanceof Error ? e.message : String(e)); }
+  }
+
+  // Load recording on mount (detail mode only)
+  useEffect(() => {
+    if (isListMode) return;
     loadRecording();
     return () => cleanup();
-  }, []);
+  }, [id]);
 
   async function loadRecording() {
     try {
@@ -385,6 +412,29 @@ export default function LiveInvestigation() {
   useEffect(() => {
     return () => cleanup();
   }, []);
+
+  if (isListMode) {
+    return (
+      <div>
+        <div className="topbar"><div><h1 className="page-title">Live Investigation</h1><p className="page-sub">Create or select a recording to start the live session.</p></div></div>
+        {error && <div className="alert alert-error">{error}</div>}
+        <div className="panel" style={{ marginBottom: 16 }}>
+          <h3 style={{ marginTop: 0 }}>New recording</h3>
+          <div className="grid grid-3">
+            <div className="field"><label>TITLE</label><input value={createTitle} onChange={(e) => setCreateTitle(e.target.value)} placeholder="Inspection 2026-03-15" /></div>
+            <div className="field"><label>EQUIPMENT</label><select value={createEq} onChange={(e) => setCreateEq(e.target.value)} style={{ width: "100%", padding: 11, borderRadius: 8, background: "#081627", color: "var(--text)", border: "1px solid var(--border)" }}><option value="">Select…</option>{equipList.map((e) => <option key={e.id} value={e.id}>{e.code}</option>)}</select></div>
+            <div className="field"><label>&nbsp;</label><button className="btn" onClick={createRecording} disabled={!canWrite}>Create &amp; Open</button></div>
+          </div>
+        </div>
+        <div className="panel">
+          <h3 style={{ marginTop: 0 }}>Recent recordings</h3>
+          {listLoading ? <div style={{ color: "var(--muted)" }}>Loading…</div> : listItems.length === 0 ? <div style={{ color: "var(--muted)" }}>No recordings yet. Create one above.</div> : (
+            <table className="table"><thead><tr><th>ID</th><th>Title</th><th>Status</th><th>Created</th><th>Action</th></tr></thead><tbody>{(listItems as { id:number; title:string; status:string; created_at:string }[]).map((r) => <tr key={r.id}><td>{r.id}</td><td>{r.title || "—"}</td><td><span className="badge">{r.status}</span></td><td style={{ fontSize:12 }}>{r.created_at?.slice(0,10)}</td><td><button className="linklike" onClick={() => navigate(`/investigations/${r.id}/live`)}>Open</button></td></tr>)}</tbody></table>
+          )}
+        </div>
+      </div>
+    );
+  }
 
   if (!recording) {
     return <div className="loading">Loading recording…</div>;

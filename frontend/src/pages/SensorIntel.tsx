@@ -45,7 +45,7 @@ export default function SensorIntel() {
   const [evEnd, setEvEnd] = useState("");
 
   function loadList() {
-    api.sensorList().then((r) => setSets(r.datasets)).catch((e) => setErr(String(e)));
+    api.sensorList().then((r) => setSets(r.datasets)).catch((e) => setErr(e instanceof Error ? e.message : String(e)));
     api.equipmentList().then((r) => setEquipment(r.equipment)).catch(() => undefined);
   }
   useEffect(loadList, []);

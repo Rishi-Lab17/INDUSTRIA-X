@@ -77,13 +77,35 @@ export interface KBPreview {
   sections: { type: string; text: string; page?: number; source?: string }[];
 }
 
+function humanDetail(detail: unknown, fallback: string): string {
+  if (typeof detail === "string") return detail;
+  if (Array.isArray(detail)) {
+    const parts = detail.map((d: unknown) =>
+      typeof d === "string" ? d : (d as Record<string, unknown>).msg as string || (d as Record<string, unknown>).message as string || JSON.stringify(d)
+    );
+    return parts.join("; ");
+  }
+  if (detail && typeof detail === "object") {
+    const o = detail as Record<string, unknown>;
+    if (typeof o.message === "string") {
+      if (Array.isArray(o.reasons)) return `${o.message}: ${(o.reasons as string[]).join(", ")}`;
+      return o.message;
+    }
+    if (typeof o.detail === "string") return o.detail;
+    if (o.detail) return humanDetail(o.detail, fallback);
+    try { return JSON.stringify(o); } catch { return fallback; }
+  }
+  return fallback;
+}
+
 export async function authedBlob(path: string): Promise<Blob> {  const t = getToken();
   const res = await fetch(`${BASE}${path}`, {
     headers: t ? { Authorization: `Bearer ${t}` } : {},
   });
   if (!res.ok) {
     const data = await res.json().catch(() => ({}));
-    throw new Error((data as { detail?: string }).detail ?? `Request failed (${res.status})`);
+    const detail = (data as { detail?: unknown }).detail;
+    throw new Error(humanDetail(detail, `Request failed (${res.status})`));
   }
   return res.blob();
 }
@@ -131,7 +153,8 @@ async function req<T>(path: string, opts: RequestInit = {}, auth = true): Promis
   const res = await fetch(`${BASE}${path}`, { ...opts, headers });
   const data = await res.json().catch(() => ({}));
   if (!res.ok) {
-    throw new Error((data as { detail?: string }).detail ?? `Request failed (${res.status})`);
+    const detail = (data as { detail?: unknown }).detail;
+    throw new Error(humanDetail(detail, `Request failed (${res.status})`));
   }
   return data as T;
 }
