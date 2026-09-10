@@ -4,7 +4,6 @@ import Layout from "./components/Layout";
 import Dashboard from "./pages/Dashboard";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
-import Verify from "./pages/Verify";
 import PhoneVerify from "./pages/PhoneVerify";
 import Workspace from "./pages/Workspace";
 import EquipmentList from "./pages/EquipmentList";
@@ -32,12 +31,14 @@ import LineagePage from "./pages/LineagePage";
 import ReplayPage from "./pages/ReplayPage";
 import CaseAuditPage from "./pages/CaseAuditPage";
 import SovereigntyPage from "./pages/SovereigntyPage";
+import SystemHealth from "./pages/SystemHealth";
 import Stub from "./pages/Stub";
+import LiveInvestigation from "./pages/LiveInvestigation";
 import type { JSX } from "react";
 
 function Guard({ children }: { children: JSX.Element }) {
   const { user, loading } = useAuth();
-  if (loading) return <div className="auth-wrap"><div style={{ color: "var(--muted)" }}>Loading session…</div></div>;
+  if (loading) return <div className="auth-wrap"><div style={{ color: "var(--muted)" }}>Loading session...</div></div>;
   if (!user) return <Navigate to="/login" replace />;
   return children;
 }
@@ -49,7 +50,6 @@ export default function App() {
         <Routes>
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
-          <Route path="/verify" element={<Verify />} />
           <Route path="/" element={<Guard><Layout /></Guard>}>
             <Route index element={<Dashboard />} />
             <Route path="verify-phone" element={<PhoneVerify />} />
@@ -73,7 +73,7 @@ export default function App() {
             <Route path="safety-center" element={<SafetyCenter />} />
             <Route path="approvals" element={<ApprovalInbox />} />
             <Route path="evidence" element={<Stub title="Evidence Center" stage="Stage 7" desc="Structured evidence cards and evidence graph." />} />
-            <Route path="audit" element={<Stub title="Audit Trail" stage="Stage 9" desc="Searchable audit log of every important action." />} />
+            <Route path="audit" element={<CaseAuditPage />} />
             <Route path="cases" element={<Cases />} />
             <Route path="cases/:id" element={<CaseDetail />} />
             <Route path="memory" element={<MemoryPage />} />
@@ -82,6 +82,9 @@ export default function App() {
             <Route path="replay" element={<ReplayPage />} />
             <Route path="case-audit" element={<CaseAuditPage />} />
             <Route path="sovereignty" element={<SovereigntyPage />} />
+            <Route path="health" element={<SystemHealth />} />
+            <Route path="live-investigation" element={<LiveInvestigation />} />
+            <Route path="investigations/:id/live" element={<LiveInvestigation />} />
           </Route>
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>

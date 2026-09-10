@@ -19,7 +19,7 @@ from app.ai.providers import (KimiK3Provider, ModelRequestInvalid,
 from app.ai.registry import cached_health, list_models, route
 from app.core.config import get_settings
 from app.core.rate_limit import reset_all
-from helpers import client, code_for, db
+from helpers import client, db
 
 _s = get_settings()
 _orig = {"AI_PROVIDER": _s.AI_PROVIDER, "KIMI_K3_TIMEOUT_S": _s.KIMI_K3_TIMEOUT_S,
@@ -46,8 +46,6 @@ def _admin():
         "company_name": company, "name": "Admin", "email": email,
         "password": "Str0ngPass!"})
     assert r.status_code == 201, r.text
-    assert client.post("/api/auth/verify-otp",
-                       json={"email": email, "code": code_for(email)}).status_code == 200
     lr = client.post("/api/auth/login",
                      json={"email": email, "password": "Str0ngPass!"})
     assert lr.status_code == 200
@@ -599,3 +597,4 @@ def test_e2e_workbench_flow_with_isolation():
     assert run["run"]["sources_count"] >= 1 and run["tool_runs"]
     hb, _, _ = _admin()
     assert client.get(f"/api/ai/runs/{run_id}", headers=hb).status_code == 404
+

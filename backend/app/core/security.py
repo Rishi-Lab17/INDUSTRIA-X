@@ -1,5 +1,4 @@
-"""Password hashing (bcrypt directly), OTP hashing (sha256), JWT session tokens."""
-import hashlib
+"""Password hashing (bcrypt), JWT session tokens."""
 import secrets
 import uuid
 from datetime import datetime, timedelta, timezone
@@ -29,14 +28,6 @@ def verify_password(password: str, password_hash: str) -> bool:
         return _bcrypt.checkpw(password.encode("utf-8"), password_hash.encode("utf-8"))
     except Exception:
         return False
-
-
-def new_otp_code() -> str:
-    return f"{secrets.randbelow(1_000_000):06d}"
-
-
-def hash_otp(code: str) -> str:
-    return hashlib.sha256(code.encode()).hexdigest()
 
 
 def utcnow() -> datetime:

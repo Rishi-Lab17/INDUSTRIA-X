@@ -1,5 +1,5 @@
-"""Stage 1 tests: auth, OTP-via-email, sessions, RBAC, tenant isolation, system probes."""
-from helpers import client, code_for
+"""Stage 1 tests: auth, sessions, RBAC, tenant isolation, system probes."""
+from helpers import client
 
 
 def _register(company="Acme Industries", name="A Admin", email="admin@acme.test",
@@ -18,23 +18,9 @@ def _auth(email, password):
     return {"Authorization": f"Bearer {r.json()['access_token']}"}
 
 
-def test_register_verify_login_me_logout():
+def test_register_login_me_logout():
     r = _register()
     assert r.status_code == 201, r.text
-    assert r.json()["message"] == "Verification code sent to your email address."
-    assert "otp" not in r.text.lower() and "dev_otp" not in r.text
-    otp = code_for("admin@acme.test")  # server-side sink inbox, never the API
-
-    # login before verification must be rejected
-    assert _login("admin@acme.test", "Str0ngPass!").status_code == 403
-
-    # wrong OTP rejected
-    assert client.post("/api/auth/verify-otp",
-                       json={"email": "admin@acme.test", "code": "000000"}).status_code == 400
-
-    # correct OTP verifies
-    assert client.post("/api/auth/verify-otp",
-                       json={"email": "admin@acme.test", "code": otp}).status_code == 200
 
     h = _auth("admin@acme.test", "Str0ngPass!")
     me = client.get("/api/auth/me", headers=h)
@@ -89,9 +75,6 @@ def test_rbac_and_tenant_isolation():
     r = _register(company="Globex Corp", name="G Admin",
                   email="admin@globex.test", password="Str0ngPass!")
     assert r.status_code == 201
-    client.post("/api/auth/verify-otp",
-                json={"email": "admin@globex.test",
-                      "code": code_for("admin@globex.test")})
     hg = _auth("admin@globex.test", "Str0ngPass!")
 
     users_g = client.get("/api/auth/users", headers=hg).json()["users"]

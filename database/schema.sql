@@ -17,23 +17,13 @@ CREATE TABLE IF NOT EXISTS users (
   password_hash TEXT NOT NULL,
   role          TEXT NOT NULL CHECK (role IN ('COMPANY_ADMIN','ENGINEER','TECHNICIAN')),
   is_active     INTEGER NOT NULL DEFAULT 0,
+  email_verified INTEGER NOT NULL DEFAULT 0,
   phone         TEXT,
   phone_verified INTEGER NOT NULL DEFAULT 0,
   created_at    TEXT NOT NULL DEFAULT (datetime('now'))
 );
 CREATE INDEX IF NOT EXISTS idx_users_company ON users(company_id);
 CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
-
-CREATE TABLE IF NOT EXISTS otp_codes (
-  id          INTEGER PRIMARY KEY AUTOINCREMENT,
-  user_id     INTEGER NOT NULL REFERENCES users(id),
-  code_hash   TEXT NOT NULL,
-  expires_at  TEXT NOT NULL,
-  consumed    INTEGER NOT NULL DEFAULT 0,
-  attempts    INTEGER NOT NULL DEFAULT 0,
-  created_at  TEXT NOT NULL DEFAULT (datetime('now'))
-);
-CREATE INDEX IF NOT EXISTS idx_otp_user ON otp_codes(user_id);
 
 CREATE TABLE IF NOT EXISTS sessions (
   id          INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -1019,3 +1009,170 @@ CREATE TABLE IF NOT EXISTS conflicts (
     checked_at      TEXT NOT NULL DEFAULT (datetime('now'))
   );
   CREATE INDEX IF NOT EXISTS idx_sh_company ON sovereignty_health(company_id);
+
+  -- Stage 10: Live Video Investigation Recording System.
+  -- Recording sessions track live camera/microphone recordings during investigations.
+
+  CREATE TABLE IF NOT EXISTS recording_sessions (
+    id                  INTEGER PRIMARY KEY AUTOINCREMENT,
+    company_id          INTEGER NOT NULL REFERENCES companies(id),
+    workspace_id        INTEGER REFERENCES workspaces(id),
+    investigation_id    INTEGER REFERENCES investigations(id),
+    case_id             INTEGER REFERENCES cases(id),
+    equipment_id        INTEGER NOT NULL REFERENCES equipment(id),
+    title               TEXT NOT NULL DEFAULT '',
+    description         TEXT NOT NULL DEFAULT '',
+    media_type          TEXT NOT NULL DEFAULT 'video' CHECK (media_type IN ('video','audio','video+audio')),
+    status              TEXT NOT NULL DEFAULT 'DRAFT' CHECK (status IN ('DRAFT','RECORDING','PAUSED','PROCESSING','COMPLETED','FAILED','ARCHIVED')),
+    started_at          TEXT,
+    stopped_at          TEXT,
+    paused_at           TEXT,
+    paused_duration     INTEGER NOT NULL DEFAULT 0,
+    duration_seconds    INTEGER NOT NULL DEFAULT 0,
+    created_by          INTEGER NOT NULL REFERENCES users(id),
+    storage_key         TEXT NOT NULL DEFAULT '',
+    file_size           INTEGER NOT NULL DEFAULT 0,
+    sha256_hash         TEXT NOT NULL DEFAULT '',
+    integrity_hash      TEXT NOT NULL DEFAULT '',
+    processing_status   TEXT NOT NULL DEFAULT 'PENDING' CHECK (processing_status IN ('PENDING','QUEUED','PROCESSING','COMPLETED','FAILED')),
+    processing_started_at TEXT,
+    processing_completed_at TEXT,
+    processing_error    TEXT NOT NULL DEFAULT '',
+    sovereignty_classification TEXT NOT NULL DEFAULT 'INTERNAL' CHECK (sovereignty_classification IN ('PUBLIC','INTERNAL','CONFIDENTIAL','RESTRICTED')),
+    created_at          TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_at          TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+  CREATE INDEX IF NOT EXISTS idx_rs_company ON recording_sessions(company_id);
+  CREATE INDEX IF NOT EXISTS idx_rs_investigation ON recording_sessions(investigation_id);
+  CREATE INDEX IF NOT EXISTS idx_rs_case ON recording_sessions(case_id);
+  CREATE INDEX IF NOT EXISTS idx_rs_equipment ON recording_sessions(equipment_id);
+  CREATE INDEX IF NOT EXISTS idx_rs_status ON recording_sessions(company_id, status);
+
+  -- Recording chunks for large video files.
+  CREATE TABLE IF NOT EXISTS recording_chunks (
+    id                  INTEGER PRIMARY KEY AUTOINCREMENT,
+    recording_id        INTEGER NOT NULL REFERENCES recording_sessions(id),
+    company_id          INTEGER NOT NULL REFERENCES companies(id),
+    chunk_index         INTEGER NOT NULL,
+    chunk_size          INTEGER NOT NULL,
+    chunk_sha256        TEXT NOT NULL,
+    storage_key         TEXT NOT NULL,
+    start_time          REAL NOT NULL,
+    end_time            REAL NOT NULL,
+    duration_seconds    REAL NOT NULL,
+    uploaded_at         TEXT NOT NULL DEFAULT (datetime('now')),
+    status              TEXT NOT NULL DEFAULT 'PENDING' CHECK (status IN ('PENDING','UPLOADING','COMPLETED','FAILED','MERGED')),
+    error_message       TEXT NOT NULL DEFAULT '',
+    created_at          TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+  CREATE INDEX IF NOT EXISTS idx_rc_recording ON recording_chunks(recording_id);
+  CREATE INDEX IF NOT EXISTS idx_rc_status ON recording_chunks(recording_id, status);
+  CREATE UNIQUE INDEX IF NOT EXISTS idx_rc_unique ON recording_chunks(recording_id, chunk_index);
+
+  -- Recording frames (keyframes extracted for analysis).
+  CREATE TABLE IF NOT EXISTS recording_frames (
+    id                  INTEGER PRIMARY KEY AUTOINCREMENT,
+    recording_id        INTEGER NOT NULL REFERENCES recording_sessions(id),
+    company_id          INTEGER NOT NULL REFERENCES companies(id),
+    investigation_id    INTEGER REFERENCES investigations(id),
+    case_id             INTEGER REFERENCES cases(id),
+    equipment_id        INTEGER NOT NULL REFERENCES equipment(id),
+    frame_index         INTEGER NOT NULL,
+    timestamp_seconds   REAL NOT NULL,
+    recording_timestamp_seconds REAL NOT NULL,
+    frame_timestamp     TEXT NOT NULL,
+    storage_key         TEXT NOT NULL,
+    file_size           INTEGER NOT NULL,
+    sha256_hash         TEXT NOT NULL,
+    width               INTEGER NOT NULL,
+    height              INTEGER NOT NULL,
+    capture_type        TEXT NOT NULL DEFAULT 'MANUAL' CHECK (capture_type IN ('MANUAL','PERIODIC','EVENT_TRIGGERED')),
+    analysis_status     TEXT NOT NULL DEFAULT 'PENDING' CHECK (analysis_status IN ('PENDING','QUEUED','PROCESSING','COMPLETED','FAILED')),
+    analysis_started_at TEXT,
+    analysis_completed_at TEXT,
+    analysis_error      TEXT NOT NULL DEFAULT '',
+    vision_result       TEXT NOT NULL DEFAULT '{}',
+    captured_by         INTEGER NOT NULL REFERENCES users(id),
+    captured_at         TEXT NOT NULL DEFAULT (datetime('now')),
+    processed_at        TEXT
+  );
+  CREATE INDEX IF NOT EXISTS idx_rf_recording ON recording_frames(recording_id);
+  CREATE INDEX IF NOT EXISTS idx_rf_investigation ON recording_frames(investigation_id);
+  CREATE INDEX IF NOT EXISTS idx_rf_case ON recording_frames(case_id);
+  CREATE INDEX IF NOT EXISTS idx_rf_analysis ON recording_frames(analysis_status);
+
+  -- AI interactions during live recording.
+  CREATE TABLE IF NOT EXISTS recording_ai_interactions (
+    id                  INTEGER PRIMARY KEY AUTOINCREMENT,
+    recording_id        INTEGER NOT NULL REFERENCES recording_sessions(id),
+    company_id          INTEGER NOT NULL REFERENCES companies(id),
+    investigation_id    INTEGER REFERENCES investigations(id),
+    case_id             INTEGER REFERENCES cases(id),
+    user_id             INTEGER NOT NULL REFERENCES users(id),
+    question            TEXT NOT NULL,
+    answer              TEXT NOT NULL DEFAULT '',
+    provider            TEXT NOT NULL DEFAULT '',
+    model               TEXT NOT NULL DEFAULT '',
+    recording_timestamp_seconds REAL NOT NULL,
+    wall_clock_timestamp TEXT NOT NULL,
+    context_snapshot    TEXT NOT NULL DEFAULT '{}',
+    latency_ms          INTEGER,
+    tokens_in           INTEGER,
+    tokens_out          INTEGER,
+    provenance          TEXT NOT NULL DEFAULT '{}',
+    created_at          TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+  CREATE INDEX IF NOT EXISTS idx_rai_recording ON recording_ai_interactions(recording_id);
+  CREATE INDEX IF NOT EXISTS idx_rai_investigation ON recording_ai_interactions(investigation_id);
+  CREATE INDEX IF NOT EXISTS idx_rai_case ON recording_ai_interactions(case_id);
+
+  -- Recording events (timeline integration).
+  CREATE TABLE IF NOT EXISTS recording_events (
+    id                  INTEGER PRIMARY KEY AUTOINCREMENT,
+    recording_id        INTEGER NOT NULL REFERENCES recording_sessions(id),
+    company_id          INTEGER NOT NULL REFERENCES companies(id),
+    investigation_id    INTEGER REFERENCES investigations(id),
+    case_id             INTEGER REFERENCES cases(id),
+    event_type          TEXT NOT NULL CHECK (event_type IN ('RECORDING_STARTED','RECORDING_PAUSED','RECORDING_RESUMED','RECORDING_STOPPED','FRAME_CAPTURED','EVIDENCE_CREATED','AI_QUESTION','AI_RESPONSE','OBSERVATION_ADDED','MEASUREMENT_ADDED','PROCESSING_STARTED','PROCESSING_COMPLETED','PROCESSING_FAILED','RECORDING_COMPLETED','RECORDING_ARCHIVED')),
+    timestamp_seconds   REAL,
+    recording_timestamp_seconds REAL,
+    wall_clock_timestamp TEXT NOT NULL,
+    user_id             INTEGER REFERENCES users(id),
+    payload             TEXT NOT NULL DEFAULT '{}',
+    created_at          TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+  CREATE INDEX IF NOT EXISTS idx_re_recording ON recording_events(recording_id);
+  CREATE INDEX IF NOT EXISTS idx_re_type ON recording_events(event_type);
+  CREATE INDEX IF NOT EXISTS idx_re_timestamp ON recording_events(wall_clock_timestamp);
+
+  -- Recording evidence (linking frames to evidence system).
+  CREATE TABLE IF NOT EXISTS recording_evidence (
+    id                  INTEGER PRIMARY KEY AUTOINCREMENT,
+    recording_id        INTEGER NOT NULL REFERENCES recording_sessions(id),
+    frame_id            INTEGER NOT NULL REFERENCES recording_frames(id),
+    evidence_id         INTEGER NOT NULL REFERENCES evidence(id),
+    company_id          INTEGER NOT NULL REFERENCES companies(id),
+    investigation_id    INTEGER NOT NULL REFERENCES investigations(id),
+    case_id             INTEGER REFERENCES cases(id),
+    created_by          INTEGER NOT NULL REFERENCES users(id),
+    created_at          TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+  CREATE INDEX IF NOT EXISTS idx_rev_recording ON recording_evidence(recording_id);
+  CREATE INDEX IF NOT EXISTS idx_rev_frame ON recording_evidence(frame_id);
+  CREATE INDEX IF NOT EXISTS idx_rev_evidence ON recording_evidence(evidence_id);
+
+  -- Recording transcripts (for optional voice questions).
+  CREATE TABLE IF NOT EXISTS recording_transcripts (
+    id                  INTEGER PRIMARY KEY AUTOINCREMENT,
+    recording_id        INTEGER NOT NULL REFERENCES recording_sessions(id),
+    company_id          INTEGER NOT NULL REFERENCES companies(id),
+    segment_index       INTEGER NOT NULL,
+    start_time          REAL NOT NULL,
+    end_time            REAL NOT NULL,
+    transcript_text     TEXT NOT NULL,
+    language            TEXT NOT NULL DEFAULT 'en',
+    confidence          REAL,
+    created_by          INTEGER NOT NULL REFERENCES users(id),
+    created_at          TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+  CREATE INDEX IF NOT EXISTS idx_rt_recording ON recording_transcripts(recording_id);

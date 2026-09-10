@@ -373,13 +373,8 @@ export interface CaseEvidenceLite {
 
 export const api = {
   register: (b: { company_name: string; name: string; email: string; password: string; mobile_number?: string }) =>
-    req<{ message: string; email_masked: string; dev_mode: boolean }>(
+    req<{ message: string; email_masked: string }>(
       "/api/auth/register", { method: "POST", body: JSON.stringify(b) }, false),
-  verifyOtp: (b: { email: string; code: string }) =>
-    req<{ message: string }>("/api/auth/verify-otp", { method: "POST", body: JSON.stringify(b) }, false),
-  resendOtp: (b: { email: string }) =>
-    req<{ message: string; email_masked?: string; dev_mode?: boolean }>("/api/auth/resend-otp", {
-      method: "POST", body: JSON.stringify(b) }, false),
   linkPhone: (b: { id_token: string }) =>
     req<{ message: string; phone_masked: string }>("/api/auth/phone/link", {
       method: "POST", body: JSON.stringify(b) }),
@@ -849,6 +844,75 @@ export const api = {
      req<Record<string, unknown>>("/api/case/safety-center"),
    caseReports9: (id: number, b: Record<string, unknown>) =>
      req<Record<string, unknown>>(`/api/case/${id}/reports`, { method: "POST", body: JSON.stringify(b) }),
-   caseReportsList9: (id: number) =>
-     req<Record<string, unknown>>(`/api/case/${id}/reports`),
+caseReportsList9: (id: number) =>
+      req<Record<string, unknown>>(`/api/case/${id}/reports`),
+    // Stage 10: live video investigation recordings
+    recordingCreate: (b: Record<string, unknown>) =>
+      req<Record<string, unknown>>("/api/recordings", { method: "POST", body: JSON.stringify(b) }),
+    recordingList: (params: Record<string, string | number | undefined> = {}) => {
+      const q = Object.entries(params)
+        .filter(([, v]) => v !== undefined && v !== "")
+        .map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(String(v))}`)
+        .join("&");
+      return req<{ recordings: Record<string, unknown>[]; total: number; page: number; page_size: number }>(
+        `/api/recordings${q ? `?${q}` : ""}`);
+    },
+    recordingGet: (id: number) =>
+      req<Record<string, unknown>>(`/api/recordings/${id}`),
+    recordingPatch: (id: number, b: Record<string, unknown>) =>
+      req<Record<string, unknown>>(`/api/recordings/${id}`, { method: "PATCH", body: JSON.stringify(b) }),
+    recordingStart: (id: number) =>
+      req<Record<string, unknown>>(`/api/recordings/${id}/start`, { method: "POST" }),
+    recordingPause: (id: number) =>
+      req<Record<string, unknown>>(`/api/recordings/${id}/pause`, { method: "POST" }),
+    recordingResume: (id: number) =>
+      req<Record<string, unknown>>(`/api/recordings/${id}/resume`, { method: "POST" }),
+    recordingStop: (id: number) =>
+      req<Record<string, unknown>>(`/api/recordings/${id}/stop`, { method: "POST" }),
+    recordingChunks: (id: number, b: Record<string, unknown>) =>
+      req<Record<string, unknown>>(`/api/recordings/${id}/chunks`, { method: "POST", body: JSON.stringify(b) }),
+    recordingMerge: (id: number) =>
+      req<Record<string, unknown>>(`/api/recordings/${id}/merge`, { method: "POST" }),
+    recordingFrameCapture: (id: number, b: Record<string, unknown>) =>
+      req<Record<string, unknown>>(`/api/recordings/${id}/frames`, { method: "POST", body: JSON.stringify(b) }),
+    recordingFrames: (id: number, params: Record<string, string | number | undefined> = {}) => {
+      const q = Object.entries(params)
+        .filter(([, v]) => v !== undefined && v !== "")
+        .map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(String(v))}`)
+        .join("&");
+      return req<{ frames: Record<string, unknown>[]; total: number; page: number; page_size: number }>(
+        `/api/recordings/${id}/frames${q ? `?${q}` : ""}`);
+    },
+    recordingAskAI: (id: number, b: Record<string, unknown>) =>
+      req<Record<string, unknown>>(`/api/recordings/${id}/questions`, { method: "POST", body: JSON.stringify(b) }),
+    recordingInteractions: (id: number, params: Record<string, string | number | undefined> = {}) => {
+      const q = Object.entries(params)
+        .filter(([, v]) => v !== undefined && v !== "")
+        .map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(String(v))}`)
+        .join("&");
+      return req<{ interactions: Record<string, unknown>[]; total: number; page: number; page_size: number }>(
+        `/api/recordings/${id}/interactions${q ? `?${q}` : ""}`);
+    },
+    recordingEvents: (id: number, params: Record<string, string | number | undefined> = {}) => {
+      const q = Object.entries(params)
+        .filter(([, v]) => v !== undefined && v !== "")
+        .map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(String(v))}`)
+        .join("&");
+      return req<{ events: Record<string, unknown>[]; total: number; page: number; page_size: number }>(
+        `/api/recordings/${id}/events${q ? `?${q}` : ""}`);
+    },
+    recordingEvidenceCreate: (id: number, b: Record<string, unknown>) =>
+      req<Record<string, unknown>>(`/api/recordings/${id}/evidence`, { method: "POST", body: JSON.stringify(b) }),
+    recordingEvidenceList: (id: number, params: Record<string, string | number | undefined> = {}) => {
+      const q = Object.entries(params)
+        .filter(([, v]) => v !== undefined && v !== "")
+        .map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(String(v))}`)
+        .join("&");
+      return req<{ evidence: Record<string, unknown>[]; total: number; page: number; page_size: number }>(
+        `/api/recordings/${id}/evidence${q ? `?${q}` : ""}`);
+    },
+    recordingTranscripts: (id: number) =>
+      req<Record<string, unknown>>(`/api/recordings/${id}/transcripts`),
+    recordingTranscriptAdd: (id: number, b: Record<string, unknown>) =>
+      req<Record<string, unknown>>(`/api/recordings/${id}/transcripts`, { method: "POST", body: JSON.stringify(b) }),
 };

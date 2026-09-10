@@ -20,14 +20,14 @@ def get_current_session(creds: HTTPAuthorizationCredentials | None = Depends(_be
     con = connect()
     try:
         row = con.execute(
-            "SELECT s.*, u.is_active, u.role AS user_role FROM sessions s"
+            "SELECT s.*, u.role AS user_role FROM sessions s"
             " JOIN users u ON u.id = s.user_id"
             " WHERE s.jti = ? AND s.revoked = 0",
             (claims.get("jti"),),
         ).fetchone()
     finally:
         con.close()
-    if row is None or not row["is_active"]:
+    if row is None:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED,
                             detail="Session revoked or user deactivated")
     return {"user_id": int(claims["sub"]),

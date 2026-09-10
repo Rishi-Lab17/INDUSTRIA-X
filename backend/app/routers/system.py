@@ -83,19 +83,6 @@ def health():
         services["dev_model"] = {"status": "OFFLINE",
                                  "detail": "Ollama not running on this machine"}
 
-    # Email delivery provider: resend only with a real key, else local outbox.
-    # Never reported as external/online unless Resend is actually configured.
-    from ..services import email_service
-    if email_service.resend_wanted() and s.RESEND_FROM_EMAIL:
-        services["email_provider"] = {"status": "ONLINE",
-                                      "detail": "Resend (explicitly configured)"}
-    elif email_service.resend_wanted():
-        services["email_provider"] = {"status": "DEGRADED",
-                                      "detail": "Resend enabled but RESEND_FROM_EMAIL missing"}
-    else:
-        services["email_provider"] = {"status": "ONLINE",
-                                      "detail": "Development outbox (local, no external delivery)"}
-
     # RAG: real local probes — embedding model + vector store file.
     try:
         from ..rag.embeddings import get_embedding_provider
@@ -113,8 +100,21 @@ def health():
     except Exception as e:
         services["rag"] = {"status": "ERROR", "detail": f"RAG probe failed: {type(e).__name__}"}
         services["vector_db"] = {"status": "ERROR", "detail": "Vector store unreadable"}
-    services["sensor_engine"] = {"status": "OFFLINE", "detail": "Stage 6 not implemented yet"}
-    services["vision_engine"] = {"status": "OFFLINE", "detail": "Stage 6 not implemented yet"}
+    # Sensor + vision engines: deterministic LOCAL analysis (numpy / PIL).
+    try:
+        import numpy  # noqa: F401
+        services["sensor_engine"] = {"status": "ONLINE",
+                                     "detail": "Local numpy sensor analysis available"}
+    except Exception:
+        services["sensor_engine"] = {"status": "ERROR",
+                                     "detail": "numpy unavailable (sensor analysis degraded)"}
+    try:
+        from PIL import Image  # noqa: F401
+        services["vision_engine"] = {"status": "ONLINE",
+                                     "detail": "Local PIL vision processing available"}
+    except Exception:
+        services["vision_engine"] = {"status": "ERROR",
+                                     "detail": "PIL unavailable (vision processing degraded)"}
 
     # AI workbench: registry health (cached, honest). Never ONLINE unless live.
     try:
@@ -148,12 +148,7 @@ def sovereignty():
         "industrial_data": s.SOV_INDUSTRIAL_DATA,
         "external_ai": s.EXTERNAL_AI,
         "external_fallback": s.EXTERNAL_FALLBACK,
-        # Email delivery is independent of AI sovereignty: resend is external
-        # and optional; the development outbox is fully local.
-        "email_delivery": ("resend (external, explicitly configured)"
-                           if (s.RESEND_ENABLED and s.RESEND_API_KEY
-                               and s.RESEND_FROM_EMAIL)
-                           else "development_outbox (local)"),
+        "email_delivery": "local (no external email provider)",
         "ai_provider": s.AI_PROVIDER,
         "ai_active_model": s.KIMI_K3_MODEL if kimi_reachable else "none",
         "kimi_reachable": kimi_reachable,

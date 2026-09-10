@@ -1,8 +1,8 @@
-"""Authentication: company registration, email-OTP verification, login/logout,
-sessions (persisted + revocable), RBAC user management, phone linking, audit read.
+"""Authentication: company registration, login/logout, sessions (persisted +
+revocable), RBAC user management, phone linking, audit read.
 
-OTP rule: the code is emailed to the user and NEVER returned by any API,
-NEVER logged, NEVER rendered by the frontend.
+Login uses email (as username/employee ID) + password. No email verification
+required — accounts are immediately active after registration.
 """
 import re
 from datetime import timedelta
@@ -14,10 +14,9 @@ from ..audit import log_event
 from ..core.config import get_settings
 from ..core.deps import get_current_session, require_roles
 from ..core.rate_limit import allow
-from ..core.security import (ROLES, create_access_token, hash_otp, hash_password,
-                             new_otp_code, utcnow, utcnow_iso, verify_password)
+from ..core.security import (ROLES, create_access_token, hash_password,
+                             utcnow, utcnow_iso, verify_password)
 from ..db import connect
-from ..services import email_service
 from ..services import firebase_service
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
@@ -60,7 +59,6 @@ class RegisterIn(BaseModel):
         if len(v) < 8:
             raise ValueError("Password must be at least 8 characters")
         if len(v.encode("utf-8")) > 72:
-            # bcrypt limit: reject loudly instead of silently truncating.
             raise ValueError("Password must not exceed 72 bytes")
         return v
 
@@ -80,15 +78,6 @@ class RegisterIn(BaseModel):
         if not _PHONE_RE.match(v):
             raise ValueError("Invalid mobile number (use 7-15 digits, optional leading +)")
         return v
-
-
-class VerifyOtpIn(BaseModel):
-    email: str
-    code: str
-
-
-class ResendOtpIn(BaseModel):
-    email: str
 
 
 class PhoneLinkIn(BaseModel):
@@ -137,7 +126,6 @@ def _client_ip(request: Request) -> str | None:
 
 @router.post("/register", status_code=201)
 def register(body: RegisterIn, request: Request):
-    s = get_settings()
     con = connect()
     try:
         if con.execute("SELECT 1 FROM users WHERE email = ?", (body.email,)).fetchone():
@@ -150,162 +138,19 @@ def register(body: RegisterIn, request: Request):
         company_id = cur.lastrowid
         cur = con.execute(
             "INSERT INTO users (company_id, name, email, password_hash, role, is_active,"
-            " phone, phone_verified, created_at)"
-            " VALUES (?, ?, ?, ?, 'COMPANY_ADMIN', 0, ?, 0, ?)",
+            " email_verified, phone, phone_verified, created_at)"
+            " VALUES (?, ?, ?, ?, 'COMPANY_ADMIN', 1, 1, ?, 0, ?)",
             (company_id, body.name, body.email, hash_password(body.password),
              body.mobile_number, utcnow_iso()),
         )
         user_id = cur.lastrowid
-        code = new_otp_code()
-        exp = (utcnow() + timedelta(minutes=s.OTP_EXPIRE_MINUTES)).isoformat()
-        con.execute(
-            "INSERT INTO otp_codes (user_id, code_hash, expires_at, created_at)"
-            " VALUES (?, ?, ?, ?)", (user_id, hash_otp(code), exp, utcnow_iso()))
         con.commit()
     finally:
         con.close()
-    # Deliver OUT-OF-BAND only. The code never appears in any API response,
-    # log line, or frontend view.
-    try:
-        mode = email_service.send_verification_email(
-            recipient=body.email, name=body.name, code=code, expires_at=exp)
-    except email_service.EmailNotConfigured as e:
-        log_event("register_email_failed", {"email": body.email, "reason": "not_configured"},
-                  company_id=company_id, user_id=user_id, ip=_client_ip(request))
-        raise HTTPException(status_code=502, detail=str(e))
-    except email_service.EmailError:
-        log_event("register_email_failed", {"email": body.email, "reason": "delivery_failed"},
-                  company_id=company_id, user_id=user_id, ip=_client_ip(request))
-        raise HTTPException(
-            status_code=502,
-            detail="Could not send verification email. Please use Resend Code to retry.")
-    finally:
-        code = "******"  # drop the plaintext code from this scope immediately
-    log_event("register", {"email": body.email, "mode": mode}, company_id=company_id,
+    log_event("register", {"email": body.email}, company_id=company_id,
               user_id=user_id, ip=_client_ip(request))
-    if mode == "dev-outbox":
-        return {"message": "Development mode: no external email was sent. Your"
-                           " verification code is available in the local"
-                           " development outbox.",
-                "email_masked": mask_email(body.email), "dev_mode": True}
-    return {"message": "Verification code sent to your email address.",
-            "email_masked": mask_email(body.email), "dev_mode": False}
-
-
-def _latest_pending_otp(con, user_id: int):
-    return con.execute(
-        "SELECT * FROM otp_codes WHERE user_id = ? AND consumed = 0"
-        " ORDER BY id DESC LIMIT 1", (user_id,)).fetchone()
-
-
-@router.post("/verify-otp")
-def verify_otp(body: VerifyOtpIn, request: Request):
-    s = get_settings()
-    email = body.email.strip().lower()
-    ok, retry_after = allow(f"otp-verify:{email}",
-                            s.OTP_VERIFY_MAX_PER_WINDOW, s.OTP_VERIFY_WINDOW_S)
-    if not ok:
-        raise HTTPException(status_code=429,
-                            detail="Too many attempts. Please try again later.")
-    con = connect()
-    try:
-        user = con.execute("SELECT * FROM users WHERE email = ?", (email,)).fetchone()
-        if user is None:
-            # Generic message: do not reveal whether the email is registered.
-            raise HTTPException(status_code=400,
-                                detail="Invalid verification code. Please try again.")
-        otp = _latest_pending_otp(con, user["id"])
-        if otp is None:
-            if user["is_active"]:
-                raise HTTPException(status_code=400,
-                                    detail="Email is already verified. Please log in.")
-            raise HTTPException(status_code=400,
-                                detail="Verification code expired. Please request a new code.")
-        if otp["attempts"] >= s.OTP_MAX_ATTEMPTS:
-            con.execute("UPDATE otp_codes SET consumed = 1 WHERE id = ?", (otp["id"],))
-            con.commit()
-            raise HTTPException(status_code=400,
-                                detail="Too many attempts. Please request a new code.")
-        if otp["expires_at"] < utcnow_iso():
-            con.execute("UPDATE otp_codes SET consumed = 1 WHERE id = ?", (otp["id"],))
-            con.commit()
-            raise HTTPException(status_code=400,
-                                detail="Verification code expired. Please request a new code.")
-        if hash_otp(body.code.strip()) != otp["code_hash"]:
-            con.execute("UPDATE otp_codes SET attempts = attempts + 1 WHERE id = ?",
-                        (otp["id"],))
-            con.commit()
-            raise HTTPException(status_code=400,
-                                detail="Invalid verification code. Please try again.")
-        # Single use: consume immediately, then activate (replay is impossible).
-        con.execute("UPDATE otp_codes SET consumed = 1 WHERE id = ?", (otp["id"],))
-        con.execute("UPDATE users SET is_active = 1 WHERE id = ?", (user["id"],))
-        con.commit()
-        company_id, user_id = user["company_id"], user["id"]
-    finally:
-        con.close()
-    log_event("otp_verified", {"email": email}, company_id=company_id,
-              user_id=user_id, ip=_client_ip(request))
-    return {"message": "Email verified successfully. You can now log in."}
-
-
-@router.post("/resend-otp")
-def resend_otp(body: ResendOtpIn, request: Request):
-    s = get_settings()
-    email = body.email.strip().lower()
-    generic_ok = {"message": "If this email is registered and unverified, "
-                            "a new verification code has been sent.",
-                  "email_masked": mask_email(email)}
-    # Cooldown: max 1 resend per OTP_RESEND_COOLDOWN_S per email.
-    ok, retry_after = allow(f"otp-resend-cool:{email}", 1, s.OTP_RESEND_COOLDOWN_S)
-    if not ok:
-        raise HTTPException(
-            status_code=429,
-            detail=f"Please wait {retry_after} seconds before requesting a new code.",
-            headers={"Retry-After": str(retry_after)})
-    # Hourly cap against OTP bombing.
-    ok, _ = allow(f"otp-resend-hour:{email}", s.OTP_RESEND_MAX_PER_HOUR, 3600)
-    if not ok:
-        raise HTTPException(status_code=429,
-                            detail="Too many code requests. Please try again later.")
-    con = connect()
-    try:
-        user = con.execute("SELECT * FROM users WHERE email = ?", (email,)).fetchone()
-        if user is None or user["is_active"]:
-            # Generic response: never reveal registration state.
-            return generic_ok
-        # Invalidate ALL previous pending codes, then issue a fresh one.
-        con.execute("UPDATE otp_codes SET consumed = 1 WHERE user_id = ? AND consumed = 0",
-                    (user["id"],))
-        code = new_otp_code()
-        exp = (utcnow() + timedelta(minutes=s.OTP_EXPIRE_MINUTES)).isoformat()
-        con.execute(
-            "INSERT INTO otp_codes (user_id, code_hash, expires_at, created_at)"
-            " VALUES (?, ?, ?, ?)", (user["id"], hash_otp(code), exp, utcnow_iso()))
-        con.commit()
-        name, user_id, company_id = user["name"], user["id"], user["company_id"]
-    finally:
-        con.close()
-    try:
-        mode = email_service.send_verification_email(
-            recipient=email, name=name, code=code, expires_at=exp)
-    except email_service.EmailError:
-        log_event("resend_email_failed", {"email": email},
-                  company_id=company_id, user_id=user_id, ip=_client_ip(request))
-        raise HTTPException(
-            status_code=502,
-            detail="Could not send verification email. Please try again.")
-    finally:
-        code = "******"
-    log_event("otp_resent", {"email": email, "mode": mode}, company_id=company_id,
-              user_id=user_id, ip=_client_ip(request))
-    if mode == "dev-outbox":
-        return {"message": "Development mode: no external email was sent. Your"
-                           " verification code is available in the local"
-                           " development outbox.",
-                "email_masked": mask_email(email), "dev_mode": True}
-    return {"message": "Verification code sent to your email address.",
-            "email_masked": mask_email(email), "dev_mode": False}
+    return {"message": "Registration successful. You can now log in.",
+            "email_masked": mask_email(body.email)}
 
 
 @router.post("/phone/link")
@@ -339,7 +184,6 @@ def link_phone(body: PhoneLinkIn, request: Request,
 
 @router.post("/login")
 def login(body: LoginIn, request: Request):
-    s = get_settings()
     email = body.email.strip().lower()
     con = connect()
     try:
@@ -349,9 +193,10 @@ def login(body: LoginIn, request: Request):
             raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED,
                                 detail="Invalid email or password")
         if not user["is_active"]:
-            raise HTTPException(status_code=403, detail="Account not verified. Please verify your email first.")
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN,
+                                detail="Account is deactivated. Please contact your administrator.")
         token, jti = create_access_token(int(user["id"]), int(user["company_id"]), user["role"])
-        exp = (utcnow() + timedelta(minutes=s.ACCESS_TOKEN_EXPIRE_MINUTES)).isoformat()
+        exp = (utcnow() + timedelta(minutes=get_settings().ACCESS_TOKEN_EXPIRE_MINUTES)).isoformat()
         con.execute(
             "INSERT INTO sessions (jti, user_id, company_id, expires_at, created_at)"
             " VALUES (?, ?, ?, ?, ?)",
@@ -402,10 +247,9 @@ def create_user(body: CreateUserIn, request: Request,
     try:
         if con.execute("SELECT 1 FROM users WHERE email = ?", (email,)).fetchone():
             raise HTTPException(status_code=409, detail="Email already registered")
-        # Tenant comes from the session, never from the request body.
         cur = con.execute(
-            "INSERT INTO users (company_id, name, email, password_hash, role, is_active, created_at)"
-            " VALUES (?, ?, ?, ?, ?, 1, ?)",
+            "INSERT INTO users (company_id, name, email, password_hash, role, is_active, email_verified, created_at)"
+            " VALUES (?, ?, ?, ?, ?, 1, 1, ?)",
             (sess["company_id"], body.name.strip(), email,
              hash_password(body.password), body.role, utcnow_iso()))
         user_id = cur.lastrowid
@@ -435,7 +279,6 @@ def read_audit(sess: dict = Depends(get_current_session), limit: int = 50):
     limit = max(1, min(limit, 200))
     con = connect()
     try:
-        # Strictly company-scoped: a tenant sees only its own events.
         rows = con.execute(
             "SELECT id, user_id, action, detail, ip, created_at FROM audit_events"
             " WHERE company_id = ? ORDER BY id DESC LIMIT ?",

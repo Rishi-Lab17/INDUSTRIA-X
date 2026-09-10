@@ -55,13 +55,11 @@ def _migrate(con) -> None:
 
     # Stage 8 migrations
     ensure("investigations", "workspace_id", "INTEGER REFERENCES workspaces(id)")
-    for tbl, col_ddl in [
-        ("verifications", "workspace_id INTEGER REFERENCES workspaces(id)"),
-        ("verifications", "due_at TEXT"),
-        ("verifications", "started_at TEXT"),
-        ("verifications", "completed_at TEXT"),
-    ]:
-        pass  # handled by schema.sql CREATE TABLE IF NOT EXISTS
+
+    # Ensure email_verified column exists and all users are marked verified
+    ensure("users", "email_verified", "INTEGER NOT NULL DEFAULT 0")
+    if "users" in tables:
+        con.execute("UPDATE users SET email_verified = 1 WHERE email_verified = 0")
 
 
 def init_db() -> None:

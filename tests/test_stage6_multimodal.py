@@ -5,7 +5,7 @@ import io
 import numpy as np
 
 from app.core.config import get_settings
-from helpers import client, code_for, db
+from helpers import client, db
 
 K = 0
 
@@ -22,8 +22,6 @@ def _admin():
         "company_name": company, "name": "Admin", "email": email,
         "password": "Str0ngPass!"})
     assert r.status_code == 201, r.text
-    assert client.post("/api/auth/verify-otp",
-                       json={"email": email, "code": code_for(email)}).status_code == 200
     lr = client.post("/api/auth/login",
                      json={"email": email, "password": "Str0ngPass!"})
     assert lr.status_code == 200
@@ -556,3 +554,4 @@ def test_agent_tools_execute_scoped():
     r = T.execute_tool(run_id=rid, sess=sess, name="analyze_vision_image",
                        args={"asset_id": aid})
     assert r["ok"] is True and r["output"]["quality"] in ("GOOD", "WARNING")
+
