@@ -13,6 +13,7 @@ interface CaseData {
   root_cause: string;
   root_cause_confidence: string;
   summary: string;
+  investigation_id?: number;
   opened_at: string;
   closed_by?: number;
 }
@@ -47,7 +48,7 @@ export default function CaseDetail() {
           <h1 className="page-title">{data.case_number}</h1>
           <p className="page-sub">{data.title || "Case Detail"} · {data.status || "OPEN"}</p>
         </div>
-        {canWrite && <button className="btn btn-ghost" onClick={() => window.location.hash = `#/cases/${id}/edit`}>Edit</button>}
+        {data.investigation_id && <Link to={`/investigations/${data.investigation_id}`}><button className="btn btn-ghost">Open Investigation</button></Link>}
       </div>
       <div className="grid grid-3" style={{ marginBottom: 16 }}>
         <div className="panel"><div className="stat-label">PRIORITY</div><div className="stat-num">{data.priority}</div></div>

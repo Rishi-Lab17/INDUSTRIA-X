@@ -164,6 +164,7 @@ class ActionIn(BaseModel):
 
 
 class MemoryIn(BaseModel):
+    case_id: int | None = None
     equipment_type: str = ""
     component: str = ""
     symptoms: str = ""
@@ -354,13 +355,19 @@ def get_similar_cases(con, company_id: int, equipment_type: str = "",
 
 
 def add_memory(con, company_id: int, body: MemoryIn, user_id: int) -> dict:
+    if body.case_id is None:
+        raise HTTPException(status_code=422, detail="case_id is required (memory must link to a case)")
+    case = con.execute("SELECT id FROM cases WHERE id = ? AND company_id = ?",
+                       (body.case_id, company_id)).fetchone()
+    if case is None:
+        raise HTTPException(status_code=404, detail="Case not found")
     cur = con.execute(
-        "INSERT INTO case_memory (company_id, equipment_type, component, symptoms,"
+        "INSERT INTO case_memory (case_id, company_id, equipment_type, component, symptoms,"
         " sensor_patterns, visual_findings, failure_mode, root_cause,"
         " verified_evidence, corrective_action, preventive_action,"
         " outcome, lessons, reliability, status, verified_by)"
-        " VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
-        (company_id, body.equipment_type, body.component, body.symptoms,
+        " VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+        (body.case_id, company_id, body.equipment_type, body.component, body.symptoms,
          body.sensor_patterns, body.visual_findings, body.failure_mode,
          body.root_cause, json.dumps(body.verified_evidence),
          body.corrective_action, body.preventive_action, body.outcome,

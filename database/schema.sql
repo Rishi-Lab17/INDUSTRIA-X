@@ -832,7 +832,7 @@ CREATE TABLE IF NOT EXISTS conflicts (
   -- Case memory: reusable organizational knowledge from verified cases.
   CREATE TABLE IF NOT EXISTS case_memory (
     id              INTEGER PRIMARY KEY AUTOINCREMENT,
-    case_id         INTEGER REFERENCES cases(id),
+    case_id         INTEGER NOT NULL REFERENCES cases(id),
     company_id      INTEGER NOT NULL REFERENCES companies(id),
     equipment_type  TEXT NOT NULL DEFAULT '',
     component       TEXT NOT NULL DEFAULT '',

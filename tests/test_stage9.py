@@ -149,10 +149,14 @@ def test_case_closure_readiness():
 
 
 def test_case_memory():
-    """Create case memory and feedback."""
+    """Create case memory (linked to a case) and feedback."""
     headers, email = _admin()
-    # Create memory
+    eq_id = _create_equipment(headers)
+    inv_id = _create_investigation(headers, eq_id)
+    case = _create_case(headers, inv_id)
+    # Create memory linked to the case
     r = client.post("/api/case/memory", headers=headers, json={
+        "case_id": case["id"],
         "equipment_type": "Motor", "component": "Bearing",
         "symptoms": "Vibration", "failure_mode": "Fatigue",
         "root_cause": "Lubrication failure",
@@ -163,6 +167,10 @@ def test_case_memory():
     mem = r.json()
     assert mem["equipment_type"] == "Motor"
     assert mem["reliability"] == "VERIFIED"
+    assert mem["case_id"] == case["id"]
+    # Missing case_id must be rejected with a clear error (memory always links to a case)
+    r = client.post("/api/case/memory", headers=headers, json={"failure_mode": "X"})
+    assert r.status_code == 422, r.text
     # Add feedback
     r = client.post(f"/api/case/memory/{mem['id']}/feedback",
                       headers=headers, json={"feedback": "USEFUL", "reason": "Very helpful"})

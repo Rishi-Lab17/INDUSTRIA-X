@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import { api } from "../api";
 import { useRole } from "../components/equipment";
 
@@ -33,7 +34,7 @@ export default function MemoryPage() {
           <h1 className="page-title">Case Memory</h1>
           <p className="page-sub">Reusable case knowledge · {total} memory{total === 1 ? "" : "s"}</p>
         </div>
-        {canWrite && <button className="btn btn-ghost" onClick={() => window.location.hash = "#/memory/new"}>+ Add Memory</button>}
+        {canWrite && <Link to="/cases"><button className="btn btn-ghost">Open a Case to Add Memory</button></Link>}
       </div>
       {err && <div className="alert alert-error">{err}</div>}
       <div className="grid grid-3" style={{ marginBottom: 16 }}>
