@@ -80,14 +80,14 @@ export default function EquipmentForm() {
             <div className="field">
               <label>CRITICALITY</label>
               <select value={f.criticality} onChange={(e) => set("criticality", e.target.value)}
-                style={{ width: "100%", padding: 11, borderRadius: 8, background: "#081627", color: "var(--text)", border: "1px solid var(--border)" }}>
+                style={{ width: "100%", padding: 11, borderRadius: 8, background: "#F8FAFC", color: "var(--text)", border: "1px solid var(--border)" }}>
                 {CRITS.map((c) => <option key={c}>{c}</option>)}
               </select>
             </div>
             <div className="field">
               <label>STATUS</label>
               <select value={f.status} onChange={(e) => set("status", e.target.value)}
-                style={{ width: "100%", padding: 11, borderRadius: 8, background: "#081627", color: "var(--text)", border: "1px solid var(--border)" }}>
+                style={{ width: "100%", padding: 11, borderRadius: 8, background: "#F8FAFC", color: "var(--text)", border: "1px solid var(--border)" }}>
                 {STATUSES.map((s) => <option key={s}>{s}</option>)}
               </select>
             </div>

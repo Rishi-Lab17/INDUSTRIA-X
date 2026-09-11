@@ -281,7 +281,7 @@ export default function KnowledgeBase() {
               </div>
               {busy && (
                 <div style={{ marginBottom: 12 }}>
-                  <div style={{ height: 8, background: "#081627", borderRadius: 4 }}>
+                  <div style={{ height: 8, background: "#F8FAFC", borderRadius: 4 }}>
                     <div style={{ width: `${pct}%`, height: 8, borderRadius: 4, background: "var(--accent)", transition: "width .2s" }} />
                   </div>
                   <div style={{ fontSize: 12, color: "var(--muted)", marginTop: 4 }}>{pct}% uploaded…</div>
@@ -297,6 +297,6 @@ export default function KnowledgeBase() {
 }
 
 const selStyle: React.CSSProperties = {
-  width: "100%", padding: 11, borderRadius: 8, background: "#081627",
+  width: "100%", padding: 11, borderRadius: 8, background: "#F8FAFC",
   color: "var(--text)", border: "1px solid var(--border)",
 };

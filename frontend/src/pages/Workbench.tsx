@@ -289,7 +289,7 @@ export default function Workbench() {
                   onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(true); } }}
                   placeholder="Ask about your private documents… (Enter to send, streamed)"
                   aria-label="AI question"
-                  style={{ flex: 1, padding: 11, borderRadius: 8, border: "1px solid var(--border)", background: "#081627", color: "var(--text)" }}
+                  style={{ flex: 1, padding: 11, borderRadius: 8, border: "1px solid var(--border)", background: "#F8FAFC", color: "var(--text)" }}
                   disabled={busy}
                 />
                 <button className="btn btn-ghost" onClick={() => send(true)} disabled={busy || !input.trim()}>Send</button>
@@ -375,6 +375,6 @@ function RunCard({ run }: { run: RunView }) {
 }
 
 const selStyle: React.CSSProperties = {
-  width: "100%", padding: 11, borderRadius: 8, background: "#081627",
+  width: "100%", padding: 11, borderRadius: 8, background: "#F8FAFC",
   color: "var(--text)", border: "1px solid var(--border)",
 };

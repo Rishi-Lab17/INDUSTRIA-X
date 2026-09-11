@@ -113,9 +113,9 @@ export default function EvidenceGraph({ nodes, edges, onSelect }: {
       <div style={{ display: "flex", gap: 8, marginBottom: 10, flexWrap: "wrap", alignItems: "center" }}>
         <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search nodes…"
           aria-label="Search graph nodes"
-          style={{ padding: 8, borderRadius: 8, border: "1px solid var(--border)", background: "#081627", color: "var(--text)" }} />
+          style={{ padding: 8, borderRadius: 8, border: "1px solid var(--border)", background: "#F8FAFC", color: "var(--text)" }} />
         <select value={kindFilter} onChange={(e) => setKindFilter(e.target.value)} aria-label="Filter by node kind"
-          style={{ padding: 8, borderRadius: 8, background: "#081627", color: "var(--text)", border: "1px solid var(--border)" }}>
+          style={{ padding: 8, borderRadius: 8, background: "#F8FAFC", color: "var(--text)", border: "1px solid var(--border)" }}>
           <option value="">All kinds</option>
           {kinds.map((k) => <option key={k} value={k}>{k}</option>)}
         </select>
@@ -124,7 +124,7 @@ export default function EvidenceGraph({ nodes, edges, onSelect }: {
         <button className="btn btn-ghost" style={{ padding: "6px 12px" }} onClick={() => { setZoom(1); setPan([0, 0]); }}>Reset</button>
         <span style={{ fontSize: 12, color: "var(--muted)" }}>{visible.size}/{nodes.length} nodes · drag to pan</span>
       </div>
-      <svg viewBox={`0 0 ${W} ${H}`} style={{ width: "100%", background: "#081627", borderRadius: 8, border: "1px solid var(--border)", cursor: drag ? "grabbing" : "grab" }}
+      <svg viewBox={`0 0 ${W} ${H}`} style={{ width: "100%", background: "#F8FAFC", borderRadius: 8, border: "1px solid var(--border)", cursor: drag ? "grabbing" : "grab" }}
         role="img" aria-label="Evidence graph"
         onMouseDown={onDown} onMouseMove={onMove} onMouseUp={() => setDrag(null)} onMouseLeave={() => setDrag(null)}>
         <g transform={`translate(${W / 2 + pan[0]},${H / 2 + pan[1]}) scale(${zoom}) translate(${-W / 2},${-H / 2})`}>
@@ -155,7 +155,7 @@ export default function EvidenceGraph({ nodes, edges, onSelect }: {
               <g key={n.id} onClick={(ev) => { ev.stopPropagation(); pickNode(n.id); }}
                 style={{ cursor: "pointer" }} role="button" aria-label={`${n.kind}: ${n.label}`} tabIndex={0}
                 onKeyDown={(ev) => { if (ev.key === "Enter") pickNode(n.id); }}>
-                <circle cx={p[0]} cy={p[1]} r={r} fill="#0B1F33" stroke={color}
+                <circle cx={p[0]} cy={p[1]} r={r} fill="#F0F9FF" stroke={color}
                   strokeWidth={selected ? 3.5 : 2} />
                 {n.kind === "hypothesis" && n.band && (
                   <circle cx={p[0]} cy={p[1]} r={r - 6} fill="none"

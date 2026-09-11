@@ -185,7 +185,7 @@ export default function InvestigationDetail() {
           <div style={{ display: "flex", gap: 8, marginBottom: 12, flexWrap: "wrap" }}>
             <button className="btn btn-ghost" onClick={generate}>Generate from evidence</button>
             <input value={hypTitle} onChange={(e) => setHypTitle(e.target.value)} placeholder="Custom hypothesis title…"
-              style={{ padding: 8, borderRadius: 8, border: "1px solid var(--border)", background: "#081627", color: "var(--text)" }} />
+              style={{ padding: 8, borderRadius: 8, border: "1px solid var(--border)", background: "#F8FAFC", color: "var(--text)" }} />
             <button className="btn btn-ghost" onClick={() => {
               if (hypTitle.trim()) act(api.caseHypothesisCreate(iid, { title: hypTitle.trim() }), "Hypothesis added.");
               setHypTitle("");
@@ -194,7 +194,7 @@ export default function InvestigationDetail() {
         )}
         {hyps.length === 0 && <div style={{ color: "var(--muted)", fontSize: 13 }}>No hypotheses yet — generate from evidence or add manually.</div>}
         {hyps.map((h) => (
-          <div key={h.id} className="panel" style={{ marginBottom: 10, background: "#0B1F33" }}>
+          <div key={h.id} className="panel" style={{ marginBottom: 10, background: "#F0F9FF" }}>
             <div style={{ display: "flex", justifyContent: "space-between", gap: 8, flexWrap: "wrap" }}>
               <b>#{h.rank} {h.title}</b>
               <span>
@@ -337,7 +337,7 @@ export default function InvestigationDetail() {
             onSelect={(n, e) => { setSelNode(n); setSelEdge(e); }} />
         ) : <div style={{ color: "var(--muted)" }}>Loading graph…</div>}
         {(selNode || selEdge) && (
-          <div className="panel" style={{ marginTop: 10, background: "#0B1F33" }}>
+          <div className="panel" style={{ marginTop: 10, background: "#F0F9FF" }}>
             {selNode && (
               <div style={{ fontSize: 13 }}>
                 <b>{selNode.kind}</b>: {selNode.label}
@@ -438,7 +438,7 @@ function NBEList({ iid, items, onDone, canWrite }: {
     <div>
       {err && <div className="alert alert-error">{err}</div>}
       {items.map((r) => (
-        <div key={r.id} className="panel" style={{ marginBottom: 8, background: "#0B1F33" }}>
+        <div key={r.id} className="panel" style={{ marginBottom: 8, background: "#F0F9FF" }}>
           <div style={{ display: "flex", justifyContent: "space-between", gap: 8 }}>
             <b>#{r.rank} {r.title}</b>
             <span className="badge">{r.priority}</span>
@@ -481,10 +481,10 @@ function ConfidenceChart({ iid }: { iid: number }) {
   let ci = 0;
   const series = [...byHyp.entries()].map(([id, v]) => ({ id, ...v, color: colors[(ci++) % colors.length] }));
   return (
-    <svg viewBox={`0 0 ${W} ${H}`} style={{ width: "100%", background: "#081627", borderRadius: 8, border: "1px solid var(--border)" }} role="img" aria-label="Confidence evolution chart">
+    <svg viewBox={`0 0 ${W} ${H}`} style={{ width: "100%", background: "#F8FAFC", borderRadius: 8, border: "1px solid var(--border)" }} role="img" aria-label="Confidence evolution chart">
       {[0, 25, 50, 75, 100].map((v) => (
         <g key={v}>
-          <line x1={40} y1={Y(v)} x2={W - 20} y2={Y(v)} stroke="#1d3a52" strokeWidth={1} />
+          <line x1={40} y1={Y(v)} x2={W - 20} y2={Y(v)} stroke="#CBD5E1" strokeWidth={1} />
           <text x={34} y={Y(v) + 3} fill="var(--muted)" fontSize={9} textAnchor="end">{v}</text>
         </g>
       ))}
@@ -549,6 +549,6 @@ function SimilarList({ items, note }: {
 }
 
 const selStyle: React.CSSProperties = {
-  width: "100%", padding: 11, borderRadius: 8, background: "#081627",
+  width: "100%", padding: 11, borderRadius: 8, background: "#F8FAFC",
   color: "var(--text)", border: "1px solid var(--border)",
 };

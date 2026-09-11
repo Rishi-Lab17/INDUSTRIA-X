@@ -240,6 +240,6 @@ export default function Multimodal() {
 }
 
 const selStyle: React.CSSProperties = {
-  width: "100%", padding: 11, borderRadius: 8, background: "#081627",
+  width: "100%", padding: 11, borderRadius: 8, background: "#F8FAFC",
   color: "var(--text)", border: "1px solid var(--border)",
 };

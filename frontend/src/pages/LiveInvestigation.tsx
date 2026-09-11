@@ -422,7 +422,7 @@ export default function LiveInvestigation() {
           <h3 style={{ marginTop: 0 }}>New recording</h3>
           <div className="grid grid-3">
             <div className="field"><label>TITLE</label><input value={createTitle} onChange={(e) => setCreateTitle(e.target.value)} placeholder="Inspection 2026-03-15" /></div>
-            <div className="field"><label>EQUIPMENT</label><select value={createEq} onChange={(e) => setCreateEq(e.target.value)} style={{ width: "100%", padding: 11, borderRadius: 8, background: "#081627", color: "var(--text)", border: "1px solid var(--border)" }}><option value="">Select…</option>{equipList.map((e) => <option key={e.id} value={e.id}>{e.code}</option>)}</select></div>
+            <div className="field"><label>EQUIPMENT</label><select value={createEq} onChange={(e) => setCreateEq(e.target.value)} style={{ width: "100%", padding: 11, borderRadius: 8, background: "#F8FAFC", color: "var(--text)", border: "1px solid var(--border)" }}><option value="">Select…</option>{equipList.map((e) => <option key={e.id} value={e.id}>{e.code}</option>)}</select></div>
             <div className="field"><label>&nbsp;</label><button className="btn" onClick={createRecording} disabled={!canWrite}>Create &amp; Open</button></div>
           </div>
         </div>

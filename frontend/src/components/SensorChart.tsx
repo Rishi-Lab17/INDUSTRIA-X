@@ -81,10 +81,10 @@ export default function SensorChart({ points, anomalies, threshold, downsampled,
         <button className="btn btn-ghost" style={{ padding: "4px 10px", fontSize: 12 }} onClick={reset}>Reset</button>
         {downsampled && <span style={{ fontSize: 12, color: "var(--warning)" }}>Downsampled for display — raw source preserved.</span>}
       </div>
-      <svg viewBox={`0 0 ${W} ${H}`} style={{ width: "100%", background: "#081627", borderRadius: 8, border: "1px solid var(--border)" }} role="img" aria-label="Sensor time series chart">
+      <svg viewBox={`0 0 ${W} ${H}`} style={{ width: "100%", background: "#F8FAFC", borderRadius: 8, border: "1px solid var(--border)" }} role="img" aria-label="Sensor time series chart">
         {view.ticks.map((t, i) => (
           <g key={i}>
-            <line x1={view.X(t)} y1={PAD.t} x2={view.X(t)} y2={H - PAD.b} stroke="#1d3a52" strokeWidth={1} />
+            <line x1={view.X(t)} y1={PAD.t} x2={view.X(t)} y2={H - PAD.b} stroke="#CBD5E1" strokeWidth={1} />
             <text x={view.X(t)} y={H - 8} fill="var(--muted)" fontSize={10} textAnchor="middle">{fmtTime(t)}</text>
           </g>
         ))}
@@ -92,7 +92,7 @@ export default function SensorChart({ points, anomalies, threshold, downsampled,
           const v = view.y0 + (view.y1 - view.y0) * f;
           return (
             <g key={f}>
-              <line x1={PAD.l} y1={view.Y(v)} x2={W - PAD.r} y2={view.Y(v)} stroke="#1d3a52" strokeWidth={1} />
+              <line x1={PAD.l} y1={view.Y(v)} x2={W - PAD.r} y2={view.Y(v)} stroke="#CBD5E1" strokeWidth={1} />
               <text x={PAD.l - 6} y={view.Y(v) + 3} fill="var(--muted)" fontSize={10} textAnchor="end">{v.toFixed(2)}</text>
             </g>
           );
